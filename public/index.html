@@ -7,6 +7,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:system-ui,-apple-system,sans-serif;background:#f5f5f3;min-height:100vh;color:#1a1a1a;}
@@ -288,10 +289,10 @@ hr.sec{border:none;border-top:1px solid #e8e8e8;margin:16px 0;}
     <div class="alert-info" style="margin-bottom:14px;">Arrastra el PDF — el sistema detecta el período y extrae todos los campos automáticamente</div>
     <div class="drop-zone" id="dropZonePDF" onclick="document.getElementById('filePDF').click()">
       <div class="dz-icon">📄</div>
-      <div class="dz-title">Arrastra el PDF de Toteat aquí o haz clic</div>
-      <div class="dz-sub">Resumen de Ventas — diario, semanal o mensual</div>
+      <div class="dz-title">Arrastra el PDF o imagen de Toteat aquí o haz clic</div>
+      <div class="dz-sub">Resumen de Ventas — PDF, JPG o PNG · diario, semanal o mensual</div>
     </div>
-    <input type="file" id="filePDF" accept=".pdf" style="display:none" onchange="handlePDFSelect(this.files[0])">
+    <input type="file" id="filePDF" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="handlePDFSelect(this.files[0])">
     <div id="pdfMsg" style="display:none;margin-top:10px;"></div>
   </div>
 </div>
@@ -1734,37 +1735,54 @@ function parseToteatPDF(raw){
 async function handlePDFSelect(file){
   if(!file) return;
   const msg=document.getElementById('pdfMsg');
-  msg.style.display='block'; msg.className=''; msg.textContent='Leyendo PDF...';
+  msg.style.display='block'; msg.className=''; msg.textContent='Procesando archivo...';
+  const isImage=file.type.startsWith('image/');
   try{
-    if(typeof pdfjsLib==='undefined') throw new Error('Librería PDF no disponible — recarga la página e inténtalo de nuevo.');
-    // Crear blob worker para evitar problemas CORS con CDN
-    if(!_pdfWorkerUrl){
-      const wb=new Blob([`importScripts('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js')`],{type:'application/javascript'});
-      _pdfWorkerUrl=URL.createObjectURL(wb);
-    }
-    pdfjsLib.GlobalWorkerOptions.workerSrc=_pdfWorkerUrl;
-    const buf=await file.arrayBuffer();
-    const timeout=new Promise((_,r)=>setTimeout(()=>r(new Error('El PDF tardó demasiado — verifica tu conexión y vuelve a intentarlo')),20000));
-    const pdf=await Promise.race([pdfjsLib.getDocument({data:buf}).promise,timeout]);
-    msg.textContent=`Extrayendo texto (${pdf.numPages} página${pdf.numPages>1?'s':''})...`;
     let rawText='';
-    for(let p=1;p<=pdf.numPages;p++){
-      const page=await pdf.getPage(p);
-      const tc=await page.getTextContent();
-      rawText+=tc.items.map(i=>i.str).join(' ')+'\n';
+    if(isImage){
+      // OCR con Tesseract.js
+      if(typeof Tesseract==='undefined') throw new Error('Librería OCR no disponible — recarga la página.');
+      msg.textContent='Analizando imagen (OCR)...';
+      const objUrl=URL.createObjectURL(file);
+      const result=await Tesseract.recognize(objUrl,'eng',{
+        logger:m=>{
+          if(m.status==='recognizing text')
+            msg.textContent='OCR: '+Math.round(m.progress*100)+'%...';
+        }
+      });
+      URL.revokeObjectURL(objUrl);
+      rawText=result.data.text;
+    } else {
+      // PDF con pdf.js
+      if(typeof pdfjsLib==='undefined') throw new Error('Librería PDF no disponible — recarga la página.');
+      if(!_pdfWorkerUrl){
+        const wb=new Blob([`importScripts('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js')`],{type:'application/javascript'});
+        _pdfWorkerUrl=URL.createObjectURL(wb);
+      }
+      pdfjsLib.GlobalWorkerOptions.workerSrc=_pdfWorkerUrl;
+      msg.textContent='Leyendo PDF...';
+      const buf=await file.arrayBuffer();
+      const timeout=new Promise((_,r)=>setTimeout(()=>r(new Error('El PDF tardó demasiado — verifica tu conexión.')),20000));
+      const pdf=await Promise.race([pdfjsLib.getDocument({data:buf}).promise,timeout]);
+      msg.textContent=`Extrayendo texto (${pdf.numPages} pág.)...`;
+      for(let p=1;p<=pdf.numPages;p++){
+        const page=await pdf.getPage(p);
+        const tc=await page.getTextContent();
+        rawText+=tc.items.map(i=>i.str).join(' ')+'\n';
+      }
     }
     const data=parseToteatPDF(rawText);
     if(!data.fechaInicio){
       msg.className='alert-warn';
-      msg.innerHTML='No se detectó el período del PDF.<br><small style="color:#888;font-family:monospace;">Texto extraído: '+rawText.substring(0,400).replace(/</g,'&lt;')+'</small>';
+      msg.innerHTML='No se detectó el período del reporte.<br><small style="color:#888;font-family:monospace;">Texto extraído: '+rawText.substring(0,400).replace(/</g,'&lt;')+'</small>';
       return;
     }
     _pdfData=data;
     msg.style.display='none';
     showPDFPreview(data);
   }catch(e){
-    console.error('PDF error:',e);
-    msg.className='alert-warn'; msg.textContent='Error al leer el PDF: '+e.message;
+    console.error('Reporte error:',e);
+    msg.className='alert-warn'; msg.textContent='Error: '+e.message;
   }
 }
 
