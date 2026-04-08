@@ -6,6 +6,7 @@
 <title>INSTINTO — Administración</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:system-ui,-apple-system,sans-serif;background:#f5f5f3;min-height:100vh;color:#1a1a1a;}
@@ -188,6 +189,7 @@ hr.sec{border:none;border-top:1px solid #e8e8e8;margin:16px 0;}
 <div class="tabs">
   <button class="tab active" onclick="goTab('inicio')">Inicio</button>
   <button class="tab" onclick="goTab('carga')">Carga Semanal</button>
+  <button class="tab" onclick="goTab('concilia')">Conciliación</button>
   <button class="tab" onclick="goTab('polizas')">Pólizas</button>
   <button class="tab" onclick="goTab('facturas')">Facturas</button>
   <button class="tab" onclick="goTab('bancos')">Bancos</button>
@@ -245,55 +247,68 @@ hr.sec{border:none;border-top:1px solid #e8e8e8;margin:16px 0;}
   </div>
 
   <div class="card">
-    <div class="card-title">3. Corte Diario Toteat (manual)</div>
-    <div class="alert-info" style="margin-bottom:14px;">Ingresa los datos del corte desde el PDF de Toteat</div>
-    <div class="form-row">
-      <div class="form-group">
-        <label>Fecha del corte</label>
-        <input type="date" id="corteFecha" value="">
+    <div class="card-title">3. Cortes Semanales Toteat</div>
+    <div class="alert-info" style="margin-bottom:14px;">Captura los 7 días de la semana de una vez — los días ya registrados aparecen bloqueados automáticamente</div>
+    <div style="display:flex;align-items:flex-end;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
+      <div class="form-group" style="max-width:200px;margin-bottom:0;">
+        <label>Semana (lunes)</label>
+        <input type="date" id="batchLunes" onchange="buildBatchTable()">
       </div>
-      <div class="form-group">
-        <label>Ventas brutas (con IVA)</label>
-        <input type="number" id="corteVentasBrutas" placeholder="0.00" step="0.01">
-      </div>
+      <button class="btn btn-outline btn-sm" onclick="setBatchLunesActual()">Semana actual</button>
+      <button class="btn btn-outline btn-sm" onclick="setBatchLunesPasada()">Semana pasada</button>
     </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label>Terminal MIFEL</label>
-        <input type="number" id="corteMIFEL" placeholder="0.00" step="0.01">
-      </div>
-      <div class="form-group">
-        <label>Terminal CASH</label>
-        <input type="number" id="corteCASH" placeholder="0.00" step="0.01">
-      </div>
-      <div class="form-group">
-        <label>Efectivo</label>
-        <input type="number" id="corteEfectivo" placeholder="0.00" step="0.01">
-      </div>
+    <div class="tbl-wrap">
+      <table id="batchTable" style="font-size:12px;">
+        <thead>
+          <tr>
+            <th style="min-width:90px;">Día</th>
+            <th class="td-num" style="min-width:95px;">Ventas brutas<br><span style="font-weight:400;text-transform:none;font-size:10px;">(c/IVA)</span></th>
+            <th class="td-num" style="min-width:90px;">MIFEL</th>
+            <th class="td-num" style="min-width:90px;">CASH</th>
+            <th class="td-num" style="min-width:90px;">Efectivo</th>
+            <th class="td-num" style="min-width:85px;">Propinas</th>
+            <th class="td-num" style="min-width:85px;">Desc/Cort</th>
+            <th class="td-num" style="min-width:85px;">Cancelac.</th>
+            <th style="min-width:70px;text-align:center;">Dif.</th>
+            <th style="min-width:110px;">Obs</th>
+          </tr>
+        </thead>
+        <tbody id="batchBody"><tr><td colspan="10" style="color:#aaa;padding:18px;text-align:center;">Selecciona la semana para cargar la tabla</td></tr></tbody>
+        <tfoot id="batchFoot"></tfoot>
+      </table>
     </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label>Propinas</label>
-        <input type="number" id="cortePropinas" placeholder="0.00" step="0.01">
-      </div>
-      <div class="form-group">
-        <label>Descuentos / Cortesías</label>
-        <input type="number" id="corteDescuentos" placeholder="0.00" step="0.01">
-      </div>
-      <div class="form-group">
-        <label>Cancelaciones</label>
-        <input type="number" id="corteCancelaciones" placeholder="0.00" step="0.01">
-      </div>
+    <div style="display:flex;align-items:center;gap:14px;margin-top:14px;flex-wrap:wrap;">
+      <button class="btn btn-primary" onclick="guardarBatch()">Guardar semana</button>
+      <span id="batchMsg" style="font-size:13px;"></span>
     </div>
-    <div class="form-row">
-      <div class="form-group" style="flex:3;">
-        <label>Observaciones</label>
-        <input type="text" id="corteObs" placeholder="Notas opcionales">
-      </div>
-    </div>
-    <button class="btn btn-primary" onclick="guardarCorte()">Registrar Corte</button>
-    <div id="corteMsg" style="display:none;margin-top:10px;"></div>
   </div>
+
+  <div class="card" style="margin-top:14px;">
+    <div class="card-title">4. Importar PDF Toteat (Resumen de Ventas)</div>
+    <div class="alert-info" style="margin-bottom:14px;">Arrastra el PDF — el sistema detecta el período y extrae todos los campos automáticamente</div>
+    <div class="drop-zone" id="dropZonePDF" onclick="document.getElementById('filePDF').click()">
+      <div class="dz-icon">📄</div>
+      <div class="dz-title">Arrastra el PDF de Toteat aquí o haz clic</div>
+      <div class="dz-sub">Resumen de Ventas — diario, semanal o mensual</div>
+    </div>
+    <input type="file" id="filePDF" accept=".pdf" style="display:none" onchange="handlePDFSelect(this.files[0])">
+    <div id="pdfMsg" style="display:none;margin-top:10px;"></div>
+  </div>
+</div>
+
+<!-- ══════════ CONCILIACIÓN ══════════ -->
+<div class="screen" id="sc-concilia">
+  <div class="sec-header">
+    <span class="sec-title">Conciliación de Ventas</span>
+  </div>
+  <div class="filtros" style="margin-bottom:16px;">
+    <input type="date" id="concDesde" onchange="renderConcilia()">
+    <input type="date" id="concHasta" onchange="renderConcilia()">
+    <button class="btn btn-outline btn-sm" onclick="setConcMesActual()">Mes actual</button>
+    <button class="btn btn-outline btn-sm" onclick="setConcUltimos30()">Últimos 30 días</button>
+  </div>
+  <div id="concilia-stats" style="margin-bottom:16px;"></div>
+  <div id="concilia-content"></div>
 </div>
 
 <!-- ══════════ PÓLIZAS ══════════ -->
@@ -498,6 +513,21 @@ hr.sec{border:none;border-top:1px solid #e8e8e8;margin:16px 0;}
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('modalCuenta')">Cancelar</button>
       <button class="btn btn-primary" onclick="guardarCuenta()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ MODAL PDF TOTEAT ══════════ -->
+<div class="modal-bg" id="modalPDF">
+  <div class="modal" style="max-width:540px;">
+    <div class="modal-header">
+      <span class="modal-title">Vista previa — PDF Toteat</span>
+      <button class="btn-ghost" onclick="closeModal('modalPDF')">✕</button>
+    </div>
+    <div class="modal-body" id="pdfPreviewBody"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modalPDF')">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmarPDFImport()">Registrar</button>
     </div>
   </div>
 </div>
@@ -1066,7 +1096,7 @@ function calcFlujoCaja(desde, hasta){
 function goTab(tab){
   _tabActual=tab;
   document.querySelectorAll('.tab').forEach((t,i)=>{
-    const tabs=['inicio','carga','polizas','facturas','bancos','reportes','catalogo'];
+    const tabs=['inicio','carga','concilia','polizas','facturas','bancos','reportes','catalogo'];
     t.classList.toggle('active',tabs[i]===tab);
   });
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
@@ -1075,6 +1105,7 @@ function goTab(tab){
 }
 function renderCurrent(){
   if(_tabActual==='inicio') renderInicio();
+  else if(_tabActual==='concilia') renderConcilia();
   else if(_tabActual==='polizas') renderPolizas();
   else if(_tabActual==='facturas') renderFacturas();
   else if(_tabActual==='bancos') renderBancos();
@@ -1653,6 +1684,177 @@ function guardarCuenta(){
 }
 
 // ═══════════════════════════════════════════════════════════
+//  PDF TOTEAT IMPORT
+// ═══════════════════════════════════════════════════════════
+let _pdfData=null;
+let _pdfWorkerUrl=null;
+
+const MESES_ES={enero:1,febrero:2,marzo:3,abril:4,mayo:5,junio:6,julio:7,agosto:8,septiembre:9,octubre:10,noviembre:11,diciembre:12};
+
+function parsearFechaES(d,m,a){
+  const mes=MESES_ES[m.toLowerCase()];
+  if(!mes) return null;
+  return `${a}-${String(mes).padStart(2,'0')}-${d.padStart(2,'0')}`;
+}
+
+function parseToteatPDF(raw){
+  const t=raw.replace(/\s+/g,' ').trim();
+  const num=s=>parseFloat((s||'').replace(/,/g,'').replace(/[–−]/g,'-'))||0;
+  const find=re=>{const m=t.match(re);return m?m[1]:null;};
+
+  // Detect date range: "DD mes YYYY" — puede haber uno o dos
+  const dateRe=/(\d{1,2})\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\s+(\d{4})/gi;
+  const dates=[...t.matchAll(dateRe)];
+  let fechaInicio=null,fechaFin=null;
+  if(dates.length>=2){
+    fechaInicio=parsearFechaES(dates[0][1],dates[0][2],dates[0][3]);
+    fechaFin=parsearFechaES(dates[1][1],dates[1][2],dates[1][3]);
+  } else if(dates.length===1){
+    fechaInicio=fechaFin=parsearFechaES(dates[0][1],dates[0][2],dates[0][3]);
+  }
+
+  // "Total Venta Bruta" appears twice: antes y después de descuentos
+  const allVB=[...t.matchAll(/Total\s+Venta\s+Bruta\s+([\d,]+\.?\d*)/g)];
+  const ventaBrutaBruta=allVB.length>=1?num(allVB[0][1]):0;
+  const ventaBrutaNeta=allVB.length>=2?num(allVB[1][1]):ventaBrutaBruta;
+  const descuentos=Math.abs(num(find(/Total\s+Descuentos\s+[–−-]?([\d,]+\.?\d*)/)));
+  const impuestos=Math.abs(num(find(/Impuestos\s+[–−-]?([\d,]+\.?\d*)/)));
+  const ventaSinImpuestos=num(find(/Venta\s+Sin\s+Impuestos\s+([\d,]+\.?\d*)/));
+  const propinas=num(find(/Propinas\s+Recaudadas\s+([\d,]+\.?\d*)/));
+  const vueltos=num(find(/Total\s+Vueltos\s+([\d,]+\.?\d*)/));
+  const tarjDebito=num(find(/Tarjeta\s+D[eé]bito\s+([\d,]+\.?\d*)/));
+  const efectivo=num(find(/Efectivo\s+([\d,]+\.?\d*)/));
+  const tarjCredito=num(find(/Tarjeta\s+Cr[eé]dito\s+([\d,]+\.?\d*)/));
+  const numPersonas=Math.round(num(find(/N[uú]mero\s+Personas\s+([\d,]+\.?\d*)/)));
+  const numOrdenes=Math.round(num(find(/N[uú]mero\s+de\s+[Oo]rdenes\s+([\d,]+\.?\d*)/)));
+
+  return {fechaInicio,fechaFin,ventaBrutaBruta,ventaBrutaNeta,descuentos,impuestos,ventaSinImpuestos,propinas,vueltos,tarjDebito,efectivo,tarjCredito,numPersonas,numOrdenes};
+}
+
+async function handlePDFSelect(file){
+  if(!file) return;
+  const msg=document.getElementById('pdfMsg');
+  msg.style.display='block'; msg.className=''; msg.textContent='Leyendo PDF...';
+  try{
+    if(typeof pdfjsLib==='undefined') throw new Error('Librería PDF no disponible — recarga la página e inténtalo de nuevo.');
+    // Crear blob worker para evitar problemas CORS con CDN
+    if(!_pdfWorkerUrl){
+      const wb=new Blob([`importScripts('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js')`],{type:'application/javascript'});
+      _pdfWorkerUrl=URL.createObjectURL(wb);
+    }
+    pdfjsLib.GlobalWorkerOptions.workerSrc=_pdfWorkerUrl;
+    const buf=await file.arrayBuffer();
+    const timeout=new Promise((_,r)=>setTimeout(()=>r(new Error('El PDF tardó demasiado — verifica tu conexión y vuelve a intentarlo')),20000));
+    const pdf=await Promise.race([pdfjsLib.getDocument({data:buf}).promise,timeout]);
+    msg.textContent=`Extrayendo texto (${pdf.numPages} página${pdf.numPages>1?'s':''})...`;
+    let rawText='';
+    for(let p=1;p<=pdf.numPages;p++){
+      const page=await pdf.getPage(p);
+      const tc=await page.getTextContent();
+      rawText+=tc.items.map(i=>i.str).join(' ')+'\n';
+    }
+    const data=parseToteatPDF(rawText);
+    if(!data.fechaInicio){
+      msg.className='alert-warn';
+      msg.innerHTML='No se detectó el período del PDF.<br><small style="color:#888;font-family:monospace;">Texto extraído: '+rawText.substring(0,400).replace(/</g,'&lt;')+'</small>';
+      return;
+    }
+    _pdfData=data;
+    msg.style.display='none';
+    showPDFPreview(data);
+  }catch(e){
+    console.error('PDF error:',e);
+    msg.className='alert-warn'; msg.textContent='Error al leer el PDF: '+e.message;
+  }
+}
+
+function showPDFPreview(d){
+  const esDiario=d.fechaInicio===d.fechaFin;
+  const periodo=esDiario?fmtDate(d.fechaFin):`${fmtDate(d.fechaInicio)} – ${fmtDate(d.fechaFin)}`;
+  const dup=S.cortes.find(c=>c.fecha===d.fechaFin&&(esDiario||c.periodoInicio===d.fechaInicio));
+  const dupWarn=dup?`<div class="alert-warn" style="margin-bottom:12px;">Ya existe un registro para este período — se guardará como duplicado si continúas.</div>`:'';
+
+  document.getElementById('pdfPreviewBody').innerHTML=`
+    ${dupWarn}
+    <div class="card" style="background:#f8faff;border-color:#cbd5e8;margin-bottom:14px;">
+      <div style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">Período detectado</div>
+      <div style="font-size:16px;font-weight:700;color:#0D2A5E;">${periodo}</div>
+      ${!esDiario?`<div style="font-size:11px;color:#888;margin-top:4px;">Registro de período — se usará ${fmtDate(d.fechaFin)} como fecha de póliza</div>`:''}
+    </div>
+    <div class="stat-grid g2" style="margin-bottom:14px;">
+      <div class="stat"><label>Venta Bruta (c/IVA, post-desc.)</label><div class="val">${fmt(d.ventaBrutaNeta)}</div></div>
+      <div class="stat"><label>Venta Sin Impuestos</label><div class="val">${fmt(d.ventaSinImpuestos)}</div><div class="sub">IVA: ${fmt(d.impuestos)}</div></div>
+      <div class="stat"><label>Descuentos</label><div class="val red">${fmt(d.descuentos)}</div></div>
+      <div class="stat"><label>Propinas</label><div class="val">${fmt(d.propinas)}</div></div>
+    </div>
+    <div style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">Formas de pago → asignar terminales</div>
+    <div class="form-row" style="margin-bottom:6px;">
+      <div class="form-group" style="flex:1;"><label>Tarjeta Débito (${fmt(d.tarjDebito)})</label>
+        <select id="pdfMapDebito"><option value="mifel">Terminal MIFEL</option><option value="cash">Terminal CASH</option><option value="otro">Otro / mixto</option></select></div>
+      <div class="form-group" style="flex:1;"><label>Tarjeta Crédito (${fmt(d.tarjCredito)})</label>
+        <select id="pdfMapCredito"><option value="cash">Terminal CASH</option><option value="mifel">Terminal MIFEL</option><option value="otro">Otro / mixto</option></select></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group" style="flex:1;"><label>Efectivo</label>
+        <input type="number" id="pdfEfectivo" value="${fmt2(d.efectivo)}" step="0.01"></div>
+      <div class="form-group" style="flex:2;"><label>Observaciones</label>
+        <input type="text" id="pdfObs" value="PDF Toteat ${periodo}"></div>
+    </div>`;
+
+  document.getElementById('modalPDF').classList.add('open');
+}
+
+function confirmarPDFImport(){
+  if(!_pdfData) return;
+  const d=_pdfData;
+  const mapDeb=document.getElementById('pdfMapDebito').value;
+  const mapCred=document.getElementById('pdfMapCredito').value;
+  const ef=parseFloat(document.getElementById('pdfEfectivo').value||0)||0;
+  const obs=document.getElementById('pdfObs').value||'';
+
+  let mifel=0,cash=0;
+  if(mapDeb==='mifel') mifel+=d.tarjDebito; else if(mapDeb==='cash') cash+=d.tarjDebito;
+  if(mapCred==='mifel') mifel+=d.tarjCredito; else if(mapCred==='cash') cash+=d.tarjCredito;
+
+  const vb=round(d.ventaBrutaNeta);
+  const corte={
+    id:uid(),fecha:d.fechaFin,
+    periodoInicio:d.fechaInicio,periodoFin:d.fechaFin,
+    esPeriodo:d.fechaInicio!==d.fechaFin,
+    ventasBrutas:vb,mifel:round(mifel),cash:round(cash),
+    efectivo:round(ef),propinas:round(d.propinas),
+    descuentos:round(d.descuentos),cancelaciones:0,obs,
+    origen:'pdf',ts:Date.now()
+  };
+  S.cortes.push(corte);
+
+  const iva=S.cfg.preciosConIVA?round(vb/1.16*0.16):0;
+  const neto=round(vb-iva);
+  S.polizas.push({
+    id:uid(),fecha:d.fechaFin,tipo:'ingreso',
+    desc:`Toteat PDF ${fmtDate(d.fechaInicio)}${d.fechaInicio!==d.fechaFin?' – '+fmtDate(d.fechaFin):''}`,
+    origen:'corte',refCorte:corte.id,
+    partidas:[
+      ...(mifel>0?[{cta:'1111',nom:'Terminal MIFEL',debe:round(mifel),haber:0}]:[]),
+      ...(cash>0?[{cta:'1112',nom:'Terminal CASH',debe:round(cash),haber:0}]:[]),
+      ...(ef>0?[{cta:'1101',nom:'Caja',debe:round(ef),haber:0}]:[]),
+      ...(d.descuentos>0?[{cta:'4010',nom:'Descuentos y Cortesías',debe:round(d.descuentos),haber:0}]:[]),
+      {cta:'4001',nom:'Ventas',debe:0,haber:neto},
+      ...(iva>0?[{cta:'2111',nom:'IVA Trasladado',debe:0,haber:iva}]:[]),
+    ],
+    ts:Date.now()
+  });
+
+  save();
+  closeModal('modalPDF');
+  const msg=document.getElementById('pdfMsg');
+  msg.style.display='block'; msg.className='alert-ok';
+  msg.textContent=`✓ Período ${fmtDate(d.fechaInicio)}${d.fechaInicio!==d.fechaFin?' – '+fmtDate(d.fechaFin):''} registrado · Póliza generada`;
+  document.getElementById('filePDF').value='';
+  _pdfData=null;
+}
+
+// ═══════════════════════════════════════════════════════════
 //  CARGA SEMANAL HANDLERS
 // ═══════════════════════════════════════════════════════════
 const dropZone=document.getElementById('dropZone');
@@ -1661,6 +1863,12 @@ dropZone.addEventListener('dragleave',()=>dropZone.classList.remove('over'));
 dropZone.addEventListener('drop',e=>{e.preventDefault();dropZone.classList.remove('over');const f=e.dataTransfer.files[0];if(f&&f.name.endsWith('.zip')) handleZip(f);});
 
 function handleZipSelect(input){ if(input.files[0]) handleZip(input.files[0]); }
+
+const dropZonePDF=document.getElementById('dropZonePDF');
+dropZonePDF.addEventListener('dragenter',e=>{e.preventDefault();dropZonePDF.classList.add('over');});
+dropZonePDF.addEventListener('dragover',e=>{e.preventDefault();dropZonePDF.classList.add('over');});
+dropZonePDF.addEventListener('dragleave',e=>{if(!dropZonePDF.contains(e.relatedTarget)) dropZonePDF.classList.remove('over');});
+dropZonePDF.addEventListener('drop',e=>{e.preventDefault();dropZonePDF.classList.remove('over');const f=e.dataTransfer.files[0];if(f) handlePDFSelect(f);});
 
 async function handleZip(file){
   document.getElementById('zipLog').style.display='block';
@@ -1714,50 +1922,325 @@ async function importCSV(){
   }
 }
 
-function guardarCorte(){
-  const fecha=document.getElementById('corteFecha').value;
-  if(!fecha){ alert('Ingresa la fecha del corte'); return; }
-  const vb=parseFloat(document.getElementById('corteVentasBrutas').value||0);
-  const mifel=parseFloat(document.getElementById('corteMIFEL').value||0);
-  const cash=parseFloat(document.getElementById('corteCASH').value||0);
-  const ef=parseFloat(document.getElementById('corteEfectivo').value||0);
-  const prop=parseFloat(document.getElementById('cortePropinas').value||0);
-  const desc=parseFloat(document.getElementById('corteDescuentos').value||0);
-  const canc=parseFloat(document.getElementById('corteCancelaciones').value||0);
-  const obs=document.getElementById('corteObs').value;
+// ═══════════════════════════════════════════════════════════
+//  BATCH CORTES SEMANALES
+// ═══════════════════════════════════════════════════════════
+const DIAS_SEMANA=['Lun','Mar','Miér','Jue','Vie','Sáb','Dom'];
 
-  // Validate: mifel + cash + ef should approximate vb
-  const suma=round(mifel+cash+ef);
-  const diff=Math.abs(round(vb)-suma);
-  if(vb>0&&diff>1&&!confirm(`Las terminales suman ${fmt(suma)} vs ventas brutas ${fmt(vb)} (diferencia ${fmt(diff)}). ¿Continuar?`)) return;
+function addDays(dateStr,n){
+  const d=new Date(dateStr+'T12:00:00');
+  d.setDate(d.getDate()+n);
+  return d.toISOString().split('T')[0];
+}
 
-  const corte={id:uid(),fecha,ventasBrutas:round(vb),mifel:round(mifel),cash:round(cash),efectivo:round(ef),propinas:round(prop),descuentos:round(desc),cancelaciones:round(canc),obs,ts:Date.now()};
-  S.cortes.push(corte);
+function getLastMonday(offset){
+  const d=new Date();
+  const dow=d.getDay();
+  const diffToMon=dow===0?-6:1-dow;
+  d.setDate(d.getDate()+diffToMon+(offset||0)*7);
+  return d.toISOString().split('T')[0];
+}
 
-  // Auto-póliza de ingreso
-  const iva=S.cfg.preciosConIVA?round(vb/1.16*0.16):0;
-  const neto=round(vb-iva);
-  const poliza={
-    id:uid(), fecha, tipo:'ingreso',
-    desc:`Corte Toteat ${fmtDate(fecha)}`,
-    origen:'corte', refCorte:corte.id,
-    partidas:[
-      ...(mifel>0?[{cta:'1111',nom:'Terminal MIFEL',debe:round(mifel),haber:0}]:[]),
-      ...(cash>0?[{cta:'1112',nom:'Terminal CASH',debe:round(cash),haber:0}]:[]),
-      ...(ef>0?[{cta:'1101',nom:'Caja',debe:round(ef),haber:0}]:[]),
-      ...(desc>0?[{cta:'4010',nom:'Descuentos y Cortesías',debe:round(desc),haber:0}]:[]),
-      {cta:'4001',nom:'Ventas',debe:0,haber:neto},
-      ...(iva>0?[{cta:'2111',nom:'IVA Trasladado',debe:0,haber:iva}]:[]),
-    ],
-    ts:Date.now()
-  };
-  S.polizas.push(poliza);
+function setBatchLunesActual(){ document.getElementById('batchLunes').value=getLastMonday(0); buildBatchTable(); }
+function setBatchLunesPasada(){ document.getElementById('batchLunes').value=getLastMonday(-1); buildBatchTable(); }
+
+function buildBatchTable(){
+  const lunes=document.getElementById('batchLunes').value;
+  if(!lunes) return;
+  const tbody=document.getElementById('batchBody');
+  tbody.innerHTML='';
+  const existingDates=new Set(S.cortes.map(c=>c.fecha));
+  const fieldMap={vb:'ventasBrutas',mifel:'mifel',cash:'cash',ef:'efectivo',prop:'propinas',desc:'descuentos',canc:'cancelaciones'};
+  const fields=['vb','mifel','cash','ef','prop','desc','canc'];
+
+  for(let i=0;i<7;i++){
+    const fecha=addDays(lunes,i);
+    const isDup=existingDates.has(fecha);
+    const cx=isDup?S.cortes.find(c=>c.fecha===fecha):null;
+    const bgRow=isDup?'background:#f8f8f6;':'';
+    const bgIn=isDup?'background:#f0f0ee;color:#aaa;border-color:#e0e0e0;':'border-color:#ddd;';
+    const dis=isDup?'disabled':'';
+
+    const inputsHtml=fields.map(f=>`
+      <td style="padding:4px 3px;">
+        <input type="number" id="b${i}_${f}" step="0.01" placeholder="—"
+          style="width:88px;text-align:right;border:1px solid #ddd;border-radius:5px;padding:5px 6px;font-size:12px;${bgIn}"
+          ${dis} value="${isDup&&cx?(cx[fieldMap[f]]||''):''}"
+          oninput="updateBatchRow(${i})">
+      </td>`).join('');
+
+    const tr=document.createElement('tr');
+    tr.id=`brow-${i}`;
+    tr.setAttribute('style',bgRow);
+    tr.innerHTML=`
+      <td style="padding:6px 8px;white-space:nowrap;">
+        <span style="font-weight:${isDup?'400':'600'};color:${isDup?'#aaa':'#1a1a1a'}">${DIAS_SEMANA[i]}</span>
+        <br><span style="font-size:11px;color:#999;">${fmtDate(fecha)}</span>
+        ${isDup?'<br><span class="badge badge-pag" style="margin-top:3px;font-size:9px;">Registrado</span>':''}
+      </td>
+      ${inputsHtml}
+      <td id="bdif-${i}" style="text-align:center;padding:4px 6px;">—</td>
+      <td style="padding:4px 3px;">
+        <input type="text" id="b${i}_obs" placeholder="—"
+          style="width:100px;border:1px solid ${isDup?'#e0e0e0':'#ddd'};border-radius:5px;padding:5px 6px;font-size:12px;${bgIn}"
+          ${dis} value="${isDup&&cx?(cx.obs||''):''}">
+      </td>`;
+    tbody.appendChild(tr);
+    if(!isDup) updateBatchRow(i);
+  }
+  updateBatchTotals();
+}
+
+function getBatchRowValues(i){
+  const g=f=>parseFloat(document.getElementById(`b${i}_${f}`)?.value||0)||0;
+  return {vb:g('vb'),mifel:g('mifel'),cash:g('cash'),ef:g('ef'),prop:g('prop'),desc:g('desc'),canc:g('canc')};
+}
+
+function updateBatchRow(i){
+  const v=getBatchRowValues(i);
+  const suma=round(v.mifel+v.cash+v.ef);
+  const diff=round(v.vb-suma);
+  const el=document.getElementById(`bdif-${i}`);
+  if(!el) return;
+  if(v.vb===0&&suma===0){ el.innerHTML='—'; }
+  else if(Math.abs(diff)<=1){ el.innerHTML='<span style="color:#2d7a2d;font-weight:700;font-size:14px;">✓</span>'; }
+  else{ const color=Math.abs(diff)>500?'#e24b4a':'#b06800'; el.innerHTML=`<span style="color:${color};font-weight:600;">${fmt(diff)}</span>`; }
+  updateBatchTotals();
+}
+
+function updateBatchTotals(){
+  const lunes=document.getElementById('batchLunes').value;
+  if(!lunes) return;
+  const existingDates=new Set(S.cortes.map(c=>c.fecha));
+  let t={vb:0,mifel:0,cash:0,ef:0,prop:0,desc:0,canc:0};
+  for(let i=0;i<7;i++){
+    if(existingDates.has(addDays(lunes,i))) continue;
+    const v=getBatchRowValues(i);
+    for(const k of Object.keys(t)) t[k]+=v[k];
+  }
+  const diff=round(t.vb-t.mifel-t.cash-t.ef);
+  const difColor=Math.abs(diff)<=1?'#2d7a2d':Math.abs(diff)>500?'#e24b4a':'#b06800';
+  const difHtml=Math.abs(diff)<=1?'<span style="color:#2d7a2d;font-weight:700;">✓</span>':`<span style="color:${difColor};font-weight:600;">${fmt(diff)}</span>`;
+  document.getElementById('batchFoot').innerHTML=`
+    <tr style="background:#f0f4ff;font-weight:700;font-size:12px;">
+      <td style="padding:8px;">TOTAL NUEVOS</td>
+      <td class="td-num">${fmt2(t.vb)}</td>
+      <td class="td-num">${fmt2(t.mifel)}</td>
+      <td class="td-num">${fmt2(t.cash)}</td>
+      <td class="td-num">${fmt2(t.ef)}</td>
+      <td class="td-num">${fmt2(t.prop)}</td>
+      <td class="td-num">${fmt2(t.desc)}</td>
+      <td class="td-num">${fmt2(t.canc)}</td>
+      <td style="text-align:center;">${difHtml}</td>
+      <td></td>
+    </tr>`;
+}
+
+function guardarBatch(){
+  const lunes=document.getElementById('batchLunes').value;
+  if(!lunes){ alert('Selecciona la semana'); return; }
+  const existingDates=new Set(S.cortes.map(c=>c.fecha));
+  let saved=0;
+  const warnings=[];
+
+  for(let i=0;i<7;i++){
+    const fecha=addDays(lunes,i);
+    if(existingDates.has(fecha)) continue;
+    const v=getBatchRowValues(i);
+    if(v.vb===0&&v.mifel===0&&v.cash===0&&v.ef===0) continue;
+
+    const suma=round(v.mifel+v.cash+v.ef);
+    const diff=Math.abs(round(v.vb-suma));
+    if(v.vb>0&&diff>1) warnings.push(`${DIAS_SEMANA[i]} ${fmtDate(fecha)}: diferencia ${fmt(diff)}`);
+
+    const obs=document.getElementById(`b${i}_obs`)?.value||'';
+    const corte={id:uid(),fecha,ventasBrutas:round(v.vb),mifel:round(v.mifel),cash:round(v.cash),efectivo:round(v.ef),propinas:round(v.prop),descuentos:round(v.desc),cancelaciones:round(v.canc),obs,ts:Date.now()};
+    S.cortes.push(corte);
+
+    const iva=S.cfg.preciosConIVA?round(v.vb/1.16*0.16):0;
+    const neto=round(v.vb-iva);
+    S.polizas.push({
+      id:uid(),fecha,tipo:'ingreso',
+      desc:`Corte Toteat ${fmtDate(fecha)}`,
+      origen:'corte',refCorte:corte.id,
+      partidas:[
+        ...(v.mifel>0?[{cta:'1111',nom:'Terminal MIFEL',debe:round(v.mifel),haber:0}]:[]),
+        ...(v.cash>0?[{cta:'1112',nom:'Terminal CASH',debe:round(v.cash),haber:0}]:[]),
+        ...(v.ef>0?[{cta:'1101',nom:'Caja',debe:round(v.ef),haber:0}]:[]),
+        ...(v.desc>0?[{cta:'4010',nom:'Descuentos y Cortesías',debe:round(v.desc),haber:0}]:[]),
+        {cta:'4001',nom:'Ventas',debe:0,haber:neto},
+        ...(iva>0?[{cta:'2111',nom:'IVA Trasladado',debe:0,haber:iva}]:[]),
+      ],
+      ts:Date.now()
+    });
+    saved++;
+  }
+
+  if(saved===0){
+    const msg=document.getElementById('batchMsg');
+    msg.textContent='Sin cortes nuevos — todos los días ya están registrados o están vacíos';
+    msg.style.color='#888'; return;
+  }
+  if(warnings.length>0&&!confirm(`Hay diferencias entre ventas y terminales en:\n\n${warnings.join('\n')}\n\n¿Guardar de todas formas?`)) return;
+
   save();
+  const msg=document.getElementById('batchMsg');
+  msg.textContent=`✓ ${saved} corte${saved>1?'s':''} guardado${saved>1?'s':''}  ·  ${saved} póliza${saved>1?'s':''} generada${saved>1?'s':''}`;
+  msg.style.color='#2d7a2d';
+  buildBatchTable();
+}
 
-  const msg=document.getElementById('corteMsg');
-  msg.style.display='block'; msg.className='alert-ok';
-  msg.textContent=`✓ Corte del ${fmtDate(fecha)} registrado. Póliza generada automáticamente.`;
-  ['corteFecha','corteVentasBrutas','corteMIFEL','corteCASH','corteEfectivo','cortePropinas','corteDescuentos','corteCancelaciones','corteObs'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+// ═══════════════════════════════════════════════════════════
+//  CONCILIACIÓN
+// ═══════════════════════════════════════════════════════════
+function setConcMesActual(){
+  document.getElementById('concDesde').value=startOfMonth();
+  document.getElementById('concHasta').value=endOfMonth();
+  renderConcilia();
+}
+function setConcUltimos30(){
+  const hoy=today();
+  const d=new Date(hoy+'T12:00:00'); d.setDate(d.getDate()-29);
+  document.getElementById('concDesde').value=d.toISOString().split('T')[0];
+  document.getElementById('concHasta').value=hoy;
+  renderConcilia();
+}
+
+function renderConcilia(){
+  const desde=document.getElementById('concDesde').value;
+  const hasta=document.getElementById('concHasta').value;
+
+  // Suma de abonos bancarios por fecha y terminal
+  const mifelDeps={}, cashDeps={};
+  for(const m of S.movBanco){
+    if(desde&&m.fecha<desde) continue;
+    if(hasta&&m.fecha>hasta) continue;
+    if(m.abono<=0) continue;
+    if(m.terminal==='mifel') mifelDeps[m.fecha]=(mifelDeps[m.fecha]||0)+m.abono;
+    else if(m.terminal==='cash') cashDeps[m.fecha]=(cashDeps[m.fecha]||0)+m.abono;
+  }
+
+  const cortes=S.cortes
+    .filter(c=>(!desde||c.fecha>=desde)&&(!hasta||c.fecha<=hasta))
+    .sort((a,b)=>a.fecha.localeCompare(b.fecha));
+
+  const statsEl=document.getElementById('concilia-stats');
+  const contentEl=document.getElementById('concilia-content');
+
+  if(cortes.length===0){
+    statsEl.innerHTML='';
+    contentEl.innerHTML='<div class="empty">Sin cortes en el período. Carga primero los cortes en "Carga Semanal".</div>';
+    return;
+  }
+
+  const tM=S.cfg.tasaMIFEL||0.008, tI=S.cfg.ivaComision||0.16, tC=S.cfg.tasaCASH||0.058;
+
+  let totVentas=0,totMpos=0,totCpos=0,totEf=0,totMesp=0,totCesp=0,totMreal=0,totCreal=0;
+  let diasOK=0,diasWarn=0,diasAlert=0;
+
+  const rows=cortes.map(c=>{
+    const espM=round(c.mifel*(1-tM*(1+tI)));
+    const espC=round(c.cash*(1-tC));
+    const realM=mifelDeps[c.fecha]??null;
+    const realC=cashDeps[c.fecha]??null;
+    const difM=realM!==null?round(realM-espM):null;
+    const difC=realC!==null?round(realC-espC):null;
+    const pctM=espM>0&&difM!==null?Math.abs(difM/espM):null;
+    const pctC=espC>0&&difC!==null?Math.abs(difC/espC):null;
+
+    let status='ok';
+    if((realM===null&&c.mifel>0)||(realC===null&&c.cash>0)) status='warn';
+    if((pctM!==null&&pctM>0.03)||(pctC!==null&&pctC>0.03)) status='alert';
+    else if(status==='ok'&&((pctM!==null&&pctM>0.01)||(pctC!==null&&pctC>0.01))) status='warn';
+
+    if(status==='ok') diasOK++; else if(status==='warn') diasWarn++; else diasAlert++;
+    totVentas+=c.ventasBrutas; totMpos+=c.mifel; totCpos+=c.cash; totEf+=c.efectivo;
+    totMesp+=espM; totCesp+=espC;
+    if(realM!==null) totMreal+=realM;
+    if(realC!==null) totCreal+=realC;
+    return {c,espM,espC,realM,realC,difM,difC,status};
+  });
+
+  const totComis=round(totMpos*tM*(1+tI)+totCpos*tC);
+  const totEspDep=round(totMesp+totCesp);
+  const totRealDep=round(totMreal+totCreal);
+  const difGlobal=round(totRealDep-totEspDep);
+  const pctOK=rows.length>0?Math.round(diasOK/rows.length*100):0;
+  const difColor=Math.abs(difGlobal)<=10?'green':Math.abs(difGlobal/totEspDep)>0.03?'red':'amber';
+
+  statsEl.innerHTML=`
+    <div class="stat-grid">
+      <div class="stat"><label>Ventas Toteat</label><div class="val">${fmt(totVentas)}</div><div class="sub">${cortes.length} días · ${fmtDate(desde)} – ${fmtDate(hasta)}</div></div>
+      <div class="stat"><label>Depósitos esperados</label><div class="val">${fmt(totEspDep)}</div><div class="sub">Comisiones ${fmt(totComis)}</div></div>
+      <div class="stat"><label>Depósitos reales (CSV)</label><div class="val ${difColor}">${fmt(totRealDep)}</div><div class="sub">Dif. ${fmt(difGlobal)}</div></div>
+      <div class="stat"><label>Conciliación</label><div class="val ${diasAlert>0?'red':diasWarn>0?'amber':'green'}">${pctOK}% OK</div><div class="sub">${diasOK} OK · ${diasWarn} revisar · ${diasAlert} alerta</div></div>
+    </div>`;
+
+  const fmtDif=(dif,base)=>{
+    if(dif===null) return '<span style="color:#ccc;">—</span>';
+    if(Math.abs(dif)<=1) return '<span style="color:#2d7a2d;font-weight:600;">✓ '+fmt2(dif)+'</span>';
+    const pct=base>0?' ('+Math.abs(dif/base*100).toFixed(1)+'%)':'';
+    const color=base>0&&Math.abs(dif/base)>0.03?'#e24b4a':'#b06800';
+    return `<span style="color:${color};font-weight:600;">${fmt(dif)}</span><span style="color:#aaa;font-size:10px;">${pct}</span>`;
+  };
+  const fmtReal=r=>r===null?'<span style="color:#ccc;font-size:11px;">Sin CSV</span>':fmt2(r);
+  const statusIcon=s=>s==='ok'?'<span style="color:#2d7a2d;font-size:16px;">✓</span>':s==='warn'?'<span style="color:#b06800;font-size:16px;">⚠</span>':'<span style="color:#e24b4a;font-size:16px;">✗</span>';
+
+  let tbl=`<div class="tbl-wrap"><table style="font-size:12px;">
+    <thead><tr>
+      <th>Fecha</th>
+      <th class="td-num">Ventas POS</th>
+      <th class="td-num">MIFEL POS</th>
+      <th class="td-num">Dep. Esp.</th>
+      <th class="td-num">Dep. Real</th>
+      <th class="td-num">Dif. MIFEL</th>
+      <th class="td-num">CASH POS</th>
+      <th class="td-num">Dep. Esp.</th>
+      <th class="td-num">Dep. Real</th>
+      <th class="td-num">Dif. CASH</th>
+      <th class="td-num">Efectivo</th>
+      <th style="text-align:center;min-width:50px;">Est.</th>
+    </tr></thead><tbody>`;
+
+  for(const {c,espM,espC,realM,realC,difM,difC,status} of rows){
+    const rowBg=status==='alert'?'background:#fff5f5;':status==='warn'?'background:#fffdf0;':'';
+    tbl+=`<tr style="${rowBg}">
+      <td style="white-space:nowrap;">${fmtDate(c.fecha)}</td>
+      <td class="td-num">${fmt2(c.ventasBrutas)}</td>
+      <td class="td-num">${c.mifel>0?fmt2(c.mifel):'—'}</td>
+      <td class="td-num">${c.mifel>0?fmt2(espM):'—'}</td>
+      <td class="td-num">${c.mifel>0?fmtReal(realM):'—'}</td>
+      <td class="td-num">${c.mifel>0?fmtDif(difM,espM):'—'}</td>
+      <td class="td-num">${c.cash>0?fmt2(c.cash):'—'}</td>
+      <td class="td-num">${c.cash>0?fmt2(espC):'—'}</td>
+      <td class="td-num">${c.cash>0?fmtReal(realC):'—'}</td>
+      <td class="td-num">${c.cash>0?fmtDif(difC,espC):'—'}</td>
+      <td class="td-num">${c.efectivo>0?fmt2(c.efectivo):'—'}</td>
+      <td style="text-align:center;">${statusIcon(status)}</td>
+    </tr>`;
+  }
+
+  const tdM=round(totMreal-totMesp), tdC=round(totCreal-totCesp);
+  tbl+=`<tr style="background:#f0f4ff;font-weight:700;font-size:12px;">
+    <td>TOTAL</td>
+    <td class="td-num">${fmt2(totVentas)}</td>
+    <td class="td-num">${fmt2(totMpos)}</td>
+    <td class="td-num">${fmt2(totMesp)}</td>
+    <td class="td-num">${fmt2(totMreal)}</td>
+    <td class="td-num" style="color:${Math.abs(tdM)<=10?'#2d7a2d':'#e24b4a'}">${fmt(tdM)}</td>
+    <td class="td-num">${fmt2(totCpos)}</td>
+    <td class="td-num">${fmt2(totCesp)}</td>
+    <td class="td-num">${fmt2(totCreal)}</td>
+    <td class="td-num" style="color:${Math.abs(tdC)<=10?'#2d7a2d':'#e24b4a'}">${fmt(tdC)}</td>
+    <td class="td-num">${fmt2(totEf)}</td>
+    <td></td>
+  </tr></tbody></table></div>
+  <div style="margin-top:10px;font-size:11px;color:#aaa;">
+    Dep. Esp. = ventas × (1 − comisión). MIFEL: ${(tM*100).toFixed(1)}% + IVA ${(tI*100).toFixed(0)}%. CASH: ${(tC*100).toFixed(1)}%.
+    Los depósitos bancarios pueden llegar T+1 o T+2 días hábiles — "Sin CSV" no significa error.
+  </div>`;
+
+  contentEl.innerHTML=tbl;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1815,7 +2298,10 @@ async function init(){
   document.getElementById('hdrFecha').textContent=now.toLocaleDateString('es-MX',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
 
   // Default date filters
-  document.getElementById('corteFecha').value=today();
+  document.getElementById('batchLunes').value=getLastMonday(-1);
+  buildBatchTable();
+  document.getElementById('concDesde').value=startOfMonth();
+  document.getElementById('concHasta').value=endOfMonth();
   document.getElementById('rptDesde').value=startOfMonth();
   document.getElementById('rptHasta').value=endOfMonth();
   const y=new Date().getFullYear();
