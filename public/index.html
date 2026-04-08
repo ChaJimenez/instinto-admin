@@ -7,7 +7,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:system-ui,-apple-system,sans-serif;background:#f5f5f3;min-height:100vh;color:#1a1a1a;}
@@ -292,7 +291,7 @@ hr.sec{border:none;border-top:1px solid #e8e8e8;margin:16px 0;}
       <div class="dz-title">Arrastra el PDF o imagen de Toteat aquí o haz clic</div>
       <div class="dz-sub">Resumen de Ventas — PDF, JPG o PNG · diario, semanal o mensual</div>
     </div>
-    <input type="file" id="filePDF" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="handlePDFSelect(this.files[0])">
+    <input type="file" id="filePDF" style="display:none" onchange="handlePDFSelect(this.files[0])">
     <div id="pdfMsg" style="display:none;margin-top:10px;"></div>
   </div>
 </div>
@@ -1735,23 +1734,14 @@ function parseToteatPDF(raw){
 async function handlePDFSelect(file){
   if(!file) return;
   const msg=document.getElementById('pdfMsg');
-  msg.style.display='block'; msg.className=''; msg.textContent='Procesando archivo...';
-  const isImage=file.type.startsWith('image/');
+  msg.style.display='block'; msg.className=''; msg.textContent='Procesando...';
+  const isImage=file.type.startsWith('image/')||/\.(jpe?g|png|gif|webp|heic)$/i.test(file.name);
   try{
-    let rawText='';
     if(isImage){
-      // OCR con Tesseract.js
-      if(typeof Tesseract==='undefined') throw new Error('Librería OCR no disponible — recarga la página.');
-      msg.textContent='Analizando imagen (OCR)...';
-      const objUrl=URL.createObjectURL(file);
-      const result=await Tesseract.recognize(objUrl,'eng',{
-        logger:m=>{
-          if(m.status==='recognizing text')
-            msg.textContent='OCR: '+Math.round(m.progress*100)+'%...';
-        }
-      });
-      URL.revokeObjectURL(objUrl);
-      rawText=result.data.text;
+      // Mostrar imagen en modal + formulario manual
+      const imgUrl=URL.createObjectURL(file);
+      msg.style.display='none';
+      showImageForm(imgUrl);
     } else {
       // PDF con pdf.js
       if(typeof pdfjsLib==='undefined') throw new Error('Librería PDF no disponible — recarga la página.');
@@ -1765,25 +1755,105 @@ async function handlePDFSelect(file){
       const timeout=new Promise((_,r)=>setTimeout(()=>r(new Error('El PDF tardó demasiado — verifica tu conexión.')),20000));
       const pdf=await Promise.race([pdfjsLib.getDocument({data:buf}).promise,timeout]);
       msg.textContent=`Extrayendo texto (${pdf.numPages} pág.)...`;
+      let rawText='';
       for(let p=1;p<=pdf.numPages;p++){
         const page=await pdf.getPage(p);
         const tc=await page.getTextContent();
         rawText+=tc.items.map(i=>i.str).join(' ')+'\n';
       }
+      const data=parseToteatPDF(rawText);
+      if(!data.fechaInicio){
+        msg.style.display='block'; msg.className='alert-warn';
+        msg.innerHTML='No se detectó el período del PDF.<br><small style="color:#888;font-family:monospace;">'+rawText.substring(0,300).replace(/</g,'&lt;')+'</small>';
+        return;
+      }
+      _pdfData=data;
+      msg.style.display='none';
+      showPDFPreview(data);
     }
-    const data=parseToteatPDF(rawText);
-    if(!data.fechaInicio){
-      msg.className='alert-warn';
-      msg.innerHTML='No se detectó el período del reporte.<br><small style="color:#888;font-family:monospace;">Texto extraído: '+rawText.substring(0,400).replace(/</g,'&lt;')+'</small>';
-      return;
-    }
-    _pdfData=data;
-    msg.style.display='none';
-    showPDFPreview(data);
   }catch(e){
-    console.error('Reporte error:',e);
-    msg.className='alert-warn'; msg.textContent='Error: '+e.message;
+    console.error('Reporte:',e);
+    msg.style.display='block'; msg.className='alert-warn'; msg.textContent='Error: '+e.message;
   }
+}
+
+function showImageForm(imgUrl){
+  const today=new Date().toISOString().slice(0,10);
+  document.getElementById('modalPDF').querySelector('.modal-title').textContent='Importar imagen — Toteat';
+  document.getElementById('pdfPreviewBody').innerHTML=`
+    <img src="${imgUrl}" style="width:100%;border-radius:6px;margin-bottom:14px;border:1px solid #e0e0e0;" onload="URL.revokeObjectURL(this.src)">
+    <div style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">Ingresa los datos del reporte</div>
+    <div class="form-row" style="margin-bottom:8px;">
+      <div class="form-group"><label>Fecha inicio</label><input type="date" id="imgFechaInicio" value="${today}"></div>
+      <div class="form-group"><label>Fecha fin</label><input type="date" id="imgFechaFin" value="${today}"></div>
+    </div>
+    <div class="form-row" style="margin-bottom:8px;">
+      <div class="form-group"><label>Venta Bruta (c/IVA, post-desc.)</label><input type="number" id="imgVentas" step="0.01" placeholder="0.00"></div>
+      <div class="form-group"><label>Descuentos</label><input type="number" id="imgDesc" step="0.01" placeholder="0.00"></div>
+    </div>
+    <div class="form-row" style="margin-bottom:8px;">
+      <div class="form-group"><label>Tarjeta Débito → Terminal</label>
+        <div style="display:flex;gap:6px;">
+          <input type="number" id="imgDebito" step="0.01" placeholder="0.00" style="flex:2;">
+          <select id="imgMapDeb" style="flex:1;"><option value="mifel">MIFEL</option><option value="cash">CASH</option></select>
+        </div></div>
+      <div class="form-group"><label>Tarjeta Crédito → Terminal</label>
+        <div style="display:flex;gap:6px;">
+          <input type="number" id="imgCredito" step="0.01" placeholder="0.00" style="flex:2;">
+          <select id="imgMapCred" style="flex:1;"><option value="cash">CASH</option><option value="mifel">MIFEL</option></select>
+        </div></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Efectivo</label><input type="number" id="imgEfectivo" step="0.01" placeholder="0.00"></div>
+      <div class="form-group"><label>Propinas</label><input type="number" id="imgPropinas" step="0.01" placeholder="0.00"></div>
+      <div class="form-group"><label>Observaciones</label><input type="text" id="imgObs" value="Imagen Toteat"></div>
+    </div>`;
+  document.getElementById('modalPDF').querySelector('[onclick="confirmarPDFImport()"]').onclick=confirmarImageImport;
+  document.getElementById('modalPDF').classList.add('open');
+}
+
+function confirmarImageImport(){
+  const n=s=>parseFloat(document.getElementById(s).value||0)||0;
+  const fi=document.getElementById('imgFechaInicio').value;
+  const ff=document.getElementById('imgFechaFin').value;
+  if(!fi||!ff){alert('Completa las fechas');return;}
+  const mapDeb=document.getElementById('imgMapDeb').value;
+  const mapCred=document.getElementById('imgMapCred').value;
+  const debito=n('imgDebito'), credito=n('imgCredito');
+  let mifel=0,cash=0;
+  if(mapDeb==='mifel') mifel+=debito; else cash+=debito;
+  if(mapCred==='mifel') mifel+=credito; else cash+=credito;
+  const vb=round(n('imgVentas'));
+  const desc=round(n('imgDesc'));
+  const ef=round(n('imgEfectivo'));
+  const prop=round(n('imgPropinas'));
+  const obs=document.getElementById('imgObs').value||'';
+  const corte={id:uid(),fecha:ff,periodoInicio:fi,periodoFin:ff,esPeriodo:fi!==ff,
+    ventasBrutas:vb,mifel:round(mifel),cash:round(cash),efectivo:ef,propinas:prop,
+    descuentos:desc,cancelaciones:0,obs,origen:'imagen',ts:Date.now()};
+  S.cortes.push(corte);
+  const iva=S.cfg.preciosConIVA?round(vb/1.16*0.16):0;
+  const neto=round(vb-iva);
+  S.polizas.push({id:uid(),fecha:ff,tipo:'ingreso',
+    desc:`Toteat Imagen ${fmtDate(fi)}${fi!==ff?' – '+fmtDate(ff):''}`,
+    origen:'corte',refCorte:corte.id,
+    partidas:[
+      ...(mifel>0?[{cta:'1111',nom:'Terminal MIFEL',debe:round(mifel),haber:0}]:[]),
+      ...(cash>0?[{cta:'1112',nom:'Terminal CASH',debe:round(cash),haber:0}]:[]),
+      ...(ef>0?[{cta:'1101',nom:'Caja',debe:round(ef),haber:0}]:[]),
+      ...(desc>0?[{cta:'4010',nom:'Descuentos y Cortesías',debe:desc,haber:0}]:[]),
+      {cta:'4001',nom:'Ventas',debe:0,haber:neto},
+      {cta:'2111',nom:'IVA Trasladado',debe:0,haber:iva},
+    ]});
+  save();
+  closeModal('modalPDF');
+  document.getElementById('modalPDF').querySelector('.modal-title').textContent='Vista previa — PDF Toteat';
+  document.getElementById('modalPDF').querySelector('[onclick="confirmarImageImport()"]||[onclick="confirmarPDFImport()"]');
+  document.getElementById('modalPDF').querySelector('button.btn-primary').onclick=confirmarPDFImport;
+  const msg=document.getElementById('pdfMsg');
+  msg.style.display='block'; msg.className='alert-ok';
+  msg.textContent=`✓ Período ${fmtDate(fi)}${fi!==ff?' – '+fmtDate(ff):''} registrado · Póliza generada`;
+  document.getElementById('filePDF').value='';
 }
 
 function showPDFPreview(d){
