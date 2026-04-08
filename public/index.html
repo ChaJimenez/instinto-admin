@@ -286,11 +286,11 @@ hr.sec{border:none;border-top:1px solid #e8e8e8;margin:16px 0;}
   <div class="card" style="margin-top:14px;">
     <div class="card-title">4. Importar PDF Toteat (Resumen de Ventas)</div>
     <div class="alert-info" style="margin-bottom:14px;">Arrastra el PDF — el sistema detecta el período y extrae todos los campos automáticamente</div>
-    <div class="drop-zone" id="dropZonePDF" onclick="document.getElementById('filePDF').click()">
+    <label for="filePDF" class="drop-zone" id="dropZonePDF" style="display:block;">
       <div class="dz-icon">📄</div>
-      <div class="dz-title">Arrastra el PDF o imagen de Toteat aquí o haz clic</div>
-      <div class="dz-sub">Resumen de Ventas — PDF, JPG o PNG · diario, semanal o mensual</div>
-    </div>
+      <div class="dz-title">Arrastra el reporte aquí o haz clic para seleccionar</div>
+      <div class="dz-sub">PDF, JPG o PNG — Resumen de Ventas Toteat</div>
+    </label>
     <input type="file" id="filePDF" style="display:none" onchange="handlePDFSelect(this.files[0])">
     <div id="pdfMsg" style="display:none;margin-top:10px;"></div>
   </div>
@@ -527,7 +527,7 @@ hr.sec{border:none;border-top:1px solid #e8e8e8;margin:16px 0;}
     <div class="modal-body" id="pdfPreviewBody"></div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('modalPDF')">Cancelar</button>
-      <button class="btn btn-primary" onclick="confirmarPDFImport()">Registrar</button>
+      <button class="btn btn-primary" id="pdfConfirmBtn" onclick="confirmarPDFImport()">Registrar</button>
     </div>
   </div>
 </div>
@@ -1808,7 +1808,7 @@ function showImageForm(imgUrl){
       <div class="form-group"><label>Propinas</label><input type="number" id="imgPropinas" step="0.01" placeholder="0.00"></div>
       <div class="form-group"><label>Observaciones</label><input type="text" id="imgObs" value="Imagen Toteat"></div>
     </div>`;
-  document.getElementById('modalPDF').querySelector('[onclick="confirmarPDFImport()"]').onclick=confirmarImageImport;
+  document.getElementById('pdfConfirmBtn').onclick=confirmarImageImport;
   document.getElementById('modalPDF').classList.add('open');
 }
 
@@ -1848,8 +1848,7 @@ function confirmarImageImport(){
   save();
   closeModal('modalPDF');
   document.getElementById('modalPDF').querySelector('.modal-title').textContent='Vista previa — PDF Toteat';
-  document.getElementById('modalPDF').querySelector('[onclick="confirmarImageImport()"]||[onclick="confirmarPDFImport()"]');
-  document.getElementById('modalPDF').querySelector('button.btn-primary').onclick=confirmarPDFImport;
+  document.getElementById('pdfConfirmBtn').onclick=confirmarPDFImport;
   const msg=document.getElementById('pdfMsg');
   msg.style.display='block'; msg.className='alert-ok';
   msg.textContent=`✓ Período ${fmtDate(fi)}${fi!==ff?' – '+fmtDate(ff):''} registrado · Póliza generada`;
