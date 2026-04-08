@@ -284,14 +284,20 @@ hr.sec{border:none;border-top:1px solid #e8e8e8;margin:16px 0;}
   </div>
 
   <div class="card" style="margin-top:14px;">
-    <div class="card-title">4. Importar PDF Toteat (Resumen de Ventas)</div>
-    <div class="alert-info" style="margin-bottom:14px;">Arrastra el PDF — el sistema detecta el período y extrae todos los campos automáticamente</div>
-    <label for="filePDF" class="drop-zone" id="dropZonePDF" style="display:block;">
-      <div class="dz-icon">📄</div>
-      <div class="dz-title">Arrastra el reporte aquí o haz clic para seleccionar</div>
-      <div class="dz-sub">PDF, JPG o PNG — Resumen de Ventas Toteat</div>
-    </label>
-    <input type="file" id="filePDF" style="display:none" onchange="handlePDFSelect(this.files[0])">
+    <div class="card-title">4. Importar Reporte Toteat</div>
+    <!-- Zona drag-and-drop (separada del input) -->
+    <div class="drop-zone" id="dropZonePDF" style="margin-bottom:16px;pointer-events:all;">
+      <div class="dz-icon" style="pointer-events:none;">📄</div>
+      <div class="dz-title" style="pointer-events:none;">Arrastra aquí tu imagen o PDF</div>
+      <div class="dz-sub" style="pointer-events:none;">JPG, PNG o PDF — Resumen de Ventas Toteat</div>
+    </div>
+    <!-- Botón de selección visible — método más confiable -->
+    <div style="text-align:center;margin-bottom:12px;">
+      <label for="filePDF" style="display:inline-flex;align-items:center;gap:8px;padding:12px 28px;background:#0D2A5E;color:#fff;border-radius:8px;cursor:pointer;font-size:15px;font-weight:600;user-select:none;">
+        📂 Seleccionar imagen o PDF
+      </label>
+      <input type="file" id="filePDF" onchange="handlePDFSelect(this.files[0])" style="position:absolute;left:-9999px;opacity:0;width:1px;height:1px;">
+    </div>
     <div id="pdfMsg" style="display:none;margin-top:10px;"></div>
   </div>
 </div>
