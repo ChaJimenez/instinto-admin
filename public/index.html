@@ -297,6 +297,45 @@ hr.sec{border:none;border-top:1px solid #e8e8e8;margin:16px 0;}
     </div>
     <div id="pdfMsg" style="display:none;margin-top:10px;"></div>
   </div>
+
+  <div class="card" style="margin-top:14px;border-top:3px solid #0D2A5E;">
+    <div class="card-title" style="color:#0D2A5E;">5. Importar desde INSTINTO Caja (POS)</div>
+    <div class="alert-info" style="margin-bottom:14px;">Exporta el período desde el Dashboard Gerencial del sistema de caja y súbelo aquí. Los datos se precargan listos para guardar — solo ajusta la división MIFEL/CASH si aplica.</div>
+    <div class="drop-zone" id="dropZonePOS" onclick="document.getElementById('filePOSJson').click()" ondragover="event.preventDefault()" ondrop="event.preventDefault();handlePOSJsonSelect(event.dataTransfer.files[0])">
+      <div class="dz-icon">📊</div>
+      <div class="dz-title">Arrastra el JSON de INSTINTO Caja aquí</div>
+      <div class="dz-sub">Archivo INSTINTO_ventas_*.json exportado desde el Dashboard Gerencial</div>
+    </div>
+    <input type="file" id="filePOSJson" accept=".json" style="display:none" onchange="handlePOSJsonSelect(this.files[0])">
+    <div id="posImportPanel" style="display:none;margin-top:14px;">
+      <div id="posImportResumen" style="margin-bottom:12px;"></div>
+      <div style="font-size:11px;color:#888;margin-bottom:8px;">MIFEL + CASH deben sumar el total de Tarjeta. Ajusta según los vouchers físicos.</div>
+      <div class="tbl-wrap">
+        <table id="posImportTable" style="font-size:12px;">
+          <thead>
+            <tr>
+              <th style="min-width:90px;">Día</th>
+              <th class="td-num" style="min-width:95px;">Ventas</th>
+              <th class="td-num" style="min-width:90px;">MIFEL</th>
+              <th class="td-num" style="min-width:90px;">CASH</th>
+              <th class="td-num" style="min-width:90px;">Efectivo</th>
+              <th class="td-num" style="min-width:85px;">Propinas</th>
+              <th class="td-num" style="min-width:85px;">Desc/Cort</th>
+              <th class="td-num" style="min-width:85px;">Cancelac.</th>
+              <th style="min-width:70px;text-align:center;">Dif.</th>
+            </tr>
+          </thead>
+          <tbody id="posImportBody"></tbody>
+          <tfoot id="posImportFoot"></tfoot>
+        </table>
+      </div>
+      <div style="display:flex;align-items:center;gap:14px;margin-top:14px;flex-wrap:wrap;">
+        <button class="btn btn-primary" onclick="confirmarImportPOS()">Guardar cortes del período</button>
+        <button class="btn btn-outline" onclick="cancelarImportPOS()">Cancelar</button>
+        <span id="posImportMsg" style="font-size:13px;"></span>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- ══════════ CONCILIACIÓN ══════════ -->
@@ -1991,6 +2030,175 @@ function confirmImport(){
   alert('✓ Importación guardada correctamente');
 }
 function cancelImport(){ _pendingImport=null; document.getElementById('zipLog').style.display='none'; document.getElementById('fileZip').value=''; }
+
+// ── IMPORTAR DESDE INSTINTO POS ──
+let _posDatos=null;
+
+function handlePOSJsonSelect(file){
+  if(!file||!file.name.endsWith('.json')){ alert('Selecciona un archivo JSON exportado desde INSTINTO Caja'); return; }
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const d=JSON.parse(e.target.result);
+      if(d.tipo!=='corte-ventas-instinto-pos') throw new Error('Archivo no reconocido — exporta desde el Dashboard Gerencial del sistema de caja');
+      _posDatos=d;
+      renderPOSImportTable();
+    }catch(err){ alert('Error al leer el archivo:\n'+err.message); }
+  };
+  reader.readAsText(file);
+}
+
+function renderPOSImportTable(){
+  if(!_posDatos) return;
+  const d=_posDatos;
+  const existingDates=new Set(S.cortes.map(c=>c.fecha));
+
+  // Resumen del período
+  const r=d.resumen;
+  document.getElementById('posImportResumen').innerHTML=`
+    <div style="display:flex;gap:16px;flex-wrap:wrap;background:#f0f4ff;border:1px solid #c0d4f5;border-radius:10px;padding:12px 16px;font-size:13px;">
+      <div><span style="color:#888;font-size:11px;">PERÍODO</span><br><strong>${d.periodo.desde} → ${d.periodo.hasta}</strong></div>
+      <div><span style="color:#888;font-size:11px;">VENTAS</span><br><strong>${fmt(r.totalVentas)}</strong></div>
+      <div><span style="color:#888;font-size:11px;">EFECTIVO</span><br><strong>${fmt(r.efectivo)}</strong></div>
+      <div><span style="color:#888;font-size:11px;">TARJETA</span><br><strong>${fmt(r.tarjeta)}</strong></div>
+      <div><span style="color:#888;font-size:11px;">PROPINAS</span><br><strong>${fmt(r.propinas)}</strong></div>
+      <div><span style="color:#888;font-size:11px;">COMANDAS</span><br><strong>${r.comandas}</strong></div>
+    </div>`;
+
+  // Tabla editable por día
+  const dias=d.porDia.filter(dia=>dia.venta>0||dia.efectivo>0||dia.tarjeta>0);
+  let tbody='';
+  dias.forEach((dia,i)=>{
+    const isDup=existingDates.has(dia.fecha);
+    const bgRow=isDup?'background:#f8f8f6;':'';
+    const bgIn=isDup?'background:#f0f0ee;color:#aaa;border-color:#e0e0e0;':'border-color:#ddd;';
+    const dis=isDup?'disabled':'';
+    const dupLabel=isDup?'<span style="font-size:10px;color:#e24b4a;margin-left:4px;">ya existe</span>':'';
+    const dLabel=new Date(dia.fecha+'T12:00:00').toLocaleDateString('es-MX',{weekday:'short',day:'numeric',month:'short'});
+    // Tarjeta va a CASH por default
+    const mifelDef=0, cashDef=dia.tarjeta;
+    tbody+=`<tr style="${bgRow}">
+      <td style="padding:8px 10px;">${dLabel}${dupLabel}</td>
+      <td class="td-num"><input type="number" id="pi${i}_vb" value="${dia.venta}" ${dis} style="width:90px;padding:4px 6px;border:1px solid;border-radius:4px;text-align:right;font-size:12px;${bgIn}" oninput="updatePOSRow(${i})"></td>
+      <td class="td-num"><input type="number" id="pi${i}_mifel" value="${mifelDef}" ${dis} style="width:85px;padding:4px 6px;border:1px solid;border-radius:4px;text-align:right;font-size:12px;${bgIn}" oninput="updatePOSRow(${i})"></td>
+      <td class="td-num"><input type="number" id="pi${i}_cash" value="${cashDef}" ${dis} style="width:85px;padding:4px 6px;border:1px solid;border-radius:4px;text-align:right;font-size:12px;${bgIn}" oninput="updatePOSRow(${i})"></td>
+      <td class="td-num"><input type="number" id="pi${i}_ef" value="${dia.efectivo}" ${dis} style="width:85px;padding:4px 6px;border:1px solid;border-radius:4px;text-align:right;font-size:12px;${bgIn}" oninput="updatePOSRow(${i})"></td>
+      <td class="td-num"><input type="number" id="pi${i}_prop" value="${dia.propinas}" ${dis} style="width:78px;padding:4px 6px;border:1px solid;border-radius:4px;text-align:right;font-size:12px;${bgIn}" oninput="updatePOSRow(${i})"></td>
+      <td class="td-num"><input type="number" id="pi${i}_desc" value="${dia.descuentos||0}" ${dis} style="width:78px;padding:4px 6px;border:1px solid;border-radius:4px;text-align:right;font-size:12px;${bgIn}" oninput="updatePOSRow(${i})"></td>
+      <td class="td-num"><input type="number" id="pi${i}_canc" value="${dia.cancelaciones||0}" ${dis} style="width:78px;padding:4px 6px;border:1px solid;border-radius:4px;text-align:right;font-size:12px;${bgIn}" oninput="updatePOSRow(${i})"></td>
+      <td style="text-align:center;" id="pidif-${i}">—</td>
+    </tr>`;
+  });
+  document.getElementById('posImportBody').innerHTML=tbody||'<tr><td colspan="9" style="color:#aaa;padding:16px;text-align:center;">Sin días con ventas en el período</td></tr>';
+  _posDias=dias;
+  dias.forEach((_,i)=>updatePOSRow(i));
+  updatePOSTotals();
+  document.getElementById('posImportPanel').style.display='block';
+}
+
+let _posDias=[];
+
+function getPOSRowValues(i){
+  const g=f=>parseFloat(document.getElementById(`pi${i}_${f}`)?.value||0)||0;
+  return{vb:g('vb'),mifel:g('mifel'),cash:g('cash'),ef:g('ef'),prop:g('prop'),desc:g('desc'),canc:g('canc')};
+}
+
+function updatePOSRow(i){
+  const v=getPOSRowValues(i);
+  const suma=round(v.mifel+v.cash+v.ef);
+  const diff=round(v.vb-suma);
+  const el=document.getElementById(`pidif-${i}`);
+  if(!el) return;
+  if(v.vb===0&&suma===0){ el.innerHTML='—'; }
+  else if(Math.abs(diff)<=1){ el.innerHTML='<span style="color:#2d7a2d;font-weight:700;font-size:14px;">✓</span>'; }
+  else{ const color=Math.abs(diff)>500?'#e24b4a':'#b06800'; el.innerHTML=`<span style="color:${color};font-weight:600;">${fmt(diff)}</span>`; }
+  updatePOSTotals();
+}
+
+function updatePOSTotals(){
+  const existingDates=new Set(S.cortes.map(c=>c.fecha));
+  let t={vb:0,mifel:0,cash:0,ef:0,prop:0,desc:0,canc:0};
+  _posDias.forEach((dia,i)=>{
+    if(existingDates.has(dia.fecha)) return;
+    const v=getPOSRowValues(i);
+    for(const k of Object.keys(t)) t[k]+=v[k];
+  });
+  const diff=round(t.vb-t.mifel-t.cash-t.ef);
+  const difColor=Math.abs(diff)<=1?'#2d7a2d':Math.abs(diff)>500?'#e24b4a':'#b06800';
+  const difHtml=Math.abs(diff)<=1?'<span style="color:#2d7a2d;font-weight:700;">✓</span>':`<span style="color:${difColor};font-weight:600;">${fmt(diff)}</span>`;
+  document.getElementById('posImportFoot').innerHTML=`
+    <tr style="background:#f0f4ff;font-weight:700;font-size:12px;">
+      <td style="padding:8px;">TOTAL NUEVOS</td>
+      <td class="td-num">${fmt2(t.vb)}</td>
+      <td class="td-num">${fmt2(t.mifel)}</td>
+      <td class="td-num">${fmt2(t.cash)}</td>
+      <td class="td-num">${fmt2(t.ef)}</td>
+      <td class="td-num">${fmt2(t.prop)}</td>
+      <td class="td-num">${fmt2(t.desc)}</td>
+      <td class="td-num">${fmt2(t.canc)}</td>
+      <td style="text-align:center;">${difHtml}</td>
+    </tr>`;
+}
+
+function confirmarImportPOS(){
+  if(!_posDatos||!_posDias.length){ alert('Sin datos para importar'); return; }
+  const existingDates=new Set(S.cortes.map(c=>c.fecha));
+  const warnings=[];
+  let saved=0;
+
+  _posDias.forEach((dia,i)=>{
+    if(existingDates.has(dia.fecha)) return;
+    const v=getPOSRowValues(i);
+    if(v.vb===0&&v.mifel===0&&v.cash===0&&v.ef===0) return;
+    const suma=round(v.mifel+v.cash+v.ef);
+    const diff=Math.abs(round(v.vb-suma));
+    if(v.vb>0&&diff>1) warnings.push(`${dia.fecha}: diferencia ${fmt(diff)}`);
+
+    const corte={id:uid(),fecha:dia.fecha,periodoInicio:dia.fecha,periodoFin:dia.fecha,esPeriodo:false,
+      ventasBrutas:round(v.vb),mifel:round(v.mifel),cash:round(v.cash),efectivo:round(v.ef),
+      propinas:round(v.prop),descuentos:round(v.desc),cancelaciones:round(v.canc),
+      obs:`POS Caja · ${dia.comandas} comandas`,origen:'pos',ts:Date.now()};
+    S.cortes.push(corte);
+
+    const iva=S.cfg.preciosConIVA?round(v.vb/1.16*0.16):0;
+    const neto=round(v.vb-iva);
+    S.polizas.push({
+      id:uid(),fecha:dia.fecha,tipo:'ingreso',
+      desc:`Corte POS ${fmtDate(dia.fecha)} · ${dia.comandas} cmd`,
+      origen:'corte',refCorte:corte.id,
+      partidas:[
+        ...(v.mifel>0?[{cta:'1111',nom:'Terminal MIFEL',debe:round(v.mifel),haber:0}]:[]),
+        ...(v.cash>0?[{cta:'1112',nom:'Terminal CASH',debe:round(v.cash),haber:0}]:[]),
+        ...(v.ef>0?[{cta:'1101',nom:'Caja',debe:round(v.ef),haber:0}]:[]),
+        ...(v.desc>0?[{cta:'4010',nom:'Descuentos y Cortesías',debe:round(v.desc),haber:0}]:[]),
+        {cta:'4001',nom:'Ventas',debe:0,haber:neto},
+        ...(iva>0?[{cta:'2111',nom:'IVA Trasladado',debe:0,haber:iva}]:[]),
+      ],
+      ts:Date.now()
+    });
+    saved++;
+  });
+
+  if(saved===0){
+    const msg=document.getElementById('posImportMsg');
+    msg.textContent='Sin cortes nuevos — todos los días ya están registrados';
+    msg.style.color='#888'; return;
+  }
+  if(warnings.length>0&&!confirm(`Hay diferencias en:\n\n${warnings.join('\n')}\n\n¿Guardar de todas formas?`)) return;
+
+  save();
+  const msg=document.getElementById('posImportMsg');
+  msg.textContent=`✓ ${saved} corte${saved>1?'s':''} guardado${saved>1?'s':''}  ·  ${saved} póliza${saved>1?'s':''} generada${saved>1?'s':''}`;
+  msg.style.color='#2d7a2d';
+  setTimeout(cancelarImportPOS,3000);
+}
+
+function cancelarImportPOS(){
+  _posDatos=null;_posDias=[];
+  document.getElementById('posImportPanel').style.display='none';
+  document.getElementById('filePOSJson').value='';
+  document.getElementById('posImportMsg').textContent='';
+}
 
 async function importCSV(){
   const file=document.getElementById('fileCSV').files[0];
