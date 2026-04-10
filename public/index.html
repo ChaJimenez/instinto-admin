@@ -7,6 +7,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async></script>
+<script src="https://apis.google.com/js/api.js" async></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:system-ui,-apple-system,sans-serif;background:#f5f5f3;min-height:100vh;color:#1a1a1a;}
@@ -298,6 +300,42 @@ hr.sec{border:none;border-top:1px solid #e8e8e8;margin:16px 0;}
     <div id="pdfMsg" style="display:none;margin-top:10px;"></div>
   </div>
 
+  <div class="card" style="margin-top:14px;border-top:3px solid #34a853;">
+    <div class="card-title" style="color:#34a853;display:flex;align-items:center;gap:8px;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="#34a853"><path d="M19 2H8.5C7.1 2 6 3.1 6 4.5v11C6 16.9 7.1 18 8.5 18H19c1.4 0 2.5-1.1 2.5-2.5v-11C21.5 3.1 20.4 2 19 2zm0 13.5H8.5v-11H19v11zM3 7.5v11C3 19.9 4.1 21 5.5 21H17v-1.5H5.5v-12H3z"/></svg>
+      Importar desde Google Drive
+    </div>
+    <div id="driveAuthSection">
+      <div class="alert-info" style="margin-bottom:14px;">Conecta tu Google Drive para importar facturas XML y estados de cuenta CSV directamente desde tus carpetas, sin descargar ni comprimir nada.</div>
+      <button class="btn btn-outline" onclick="driveSignIn()" id="btnDriveConnect">
+        <svg width="16" height="16" viewBox="0 0 24 24" style="vertical-align:middle;margin-right:4px;"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+        Conectar con Google
+      </button>
+    </div>
+    <div id="drivePickerSection" style="display:none;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;">
+        <span id="driveUserInfo" style="font-size:13px;color:#555;"></span>
+        <button class="btn btn-outline btn-sm" onclick="driveSignOut()">Desconectar</button>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button class="btn btn-primary" onclick="drivePickXML()">
+          Seleccionar facturas XML (CFDI)
+        </button>
+        <button class="btn btn-outline" onclick="drivePickCSV()">
+          Seleccionar estado de cuenta CSV
+        </button>
+      </div>
+      <div id="driveLog" style="display:none;margin-top:12px;">
+        <div class="sec-title" style="margin-bottom:6px;">Resultado</div>
+        <div class="log-box" id="driveLogContent"></div>
+        <div style="display:flex;gap:10px;margin-top:10px;" id="driveActions">
+          <button class="btn btn-primary" onclick="confirmDriveImport()">Guardar todo</button>
+          <button class="btn btn-outline" onclick="cancelDriveImport()">Cancelar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="card" style="margin-top:14px;border-top:3px solid #0D2A5E;">
     <div class="card-title" style="color:#0D2A5E;">5. Importar desde INSTINTO Caja (POS)</div>
     <div class="alert-info" style="margin-bottom:14px;">Exporta el período desde el Dashboard Gerencial del sistema de caja y súbelo aquí. Los datos se precargan listos para guardar — solo ajusta la división MIFEL/CASH si aplica.</div>
@@ -340,10 +378,11 @@ hr.sec{border:none;border-top:1px solid #e8e8e8;margin:16px 0;}
 
 <!-- ══════════ CONCILIACIÓN ══════════ -->
 <div class="screen" id="sc-concilia">
-  <div class="sec-header">
-    <span class="sec-title">Conciliación de Ventas</span>
+  <div class="sub-tabs">
+    <button class="sub-tab active" onclick="switchConcTab('ventas')">Ventas vs Banco</button>
+    <button class="sub-tab" onclick="switchConcTab('proveedores')">Proveedores</button>
   </div>
-  <div class="filtros" style="margin-bottom:16px;">
+  <div id="concilia-ventas-filtros" class="filtros" style="margin-bottom:16px;">
     <input type="date" id="concDesde" onchange="renderConcilia()">
     <input type="date" id="concHasta" onchange="renderConcilia()">
     <button class="btn btn-outline btn-sm" onclick="setConcMesActual()">Mes actual</button>
@@ -386,6 +425,7 @@ hr.sec{border:none;border-top:1px solid #e8e8e8;margin:16px 0;}
   <div class="sub-tabs">
     <button class="sub-tab active" onclick="switchFactTab('recibidas')">Recibidas (gastos)</button>
     <button class="sub-tab" onclick="switchFactTab('emitidas')">Emitidas (ingresos)</button>
+    <button class="sub-tab" onclick="switchFactTab('porpagar')">Por Pagar</button>
   </div>
   <div class="sec-header">
     <span class="sec-title" id="factTabTitle">Facturas Recibidas</span>
@@ -574,6 +614,132 @@ hr.sec{border:none;border-top:1px solid #e8e8e8;margin:16px 0;}
   </div>
 </div>
 
+<!-- ══════════ MODAL PAGO FACTURA ══════════ -->
+<div class="modal-bg" id="modalPago">
+  <div class="modal" style="max-width:480px;">
+    <div class="modal-header">
+      <span class="modal-title">Registrar Pago</span>
+      <button class="btn-ghost" onclick="closeModal('modalPago')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="pagoFacturaInfo" style="background:#f8f8f6;border-radius:8px;padding:12px;margin-bottom:16px;font-size:13px;"></div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Fecha de pago</label>
+          <input type="date" id="pagoFecha">
+        </div>
+        <div class="form-group">
+          <label>Banco / Origen</label>
+          <select id="pagoBanco">
+            <option value="mifel">Terminal MIFEL</option>
+            <option value="cash">Terminal CASH</option>
+            <option value="efectivo">Efectivo</option>
+            <option value="otro">Otro</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Monto pagado</label>
+          <input type="number" id="pagoMonto" step="0.01" min="0">
+        </div>
+        <div class="form-group">
+          <label>Referencia / Folio transferencia</label>
+          <input type="text" id="pagoRef" placeholder="Opcional">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>URL comprobante (Drive) — opcional</label>
+        <input type="url" id="pagoURL" placeholder="https://drive.google.com/...">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modalPago')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarPago()">Registrar Pago</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ MODAL FACTURA MANUAL ══════════ -->
+<div class="modal-bg" id="modalFactManual">
+  <div class="modal" style="max-width:560px;">
+    <div class="modal-header">
+      <span class="modal-title">Factura Manual</span>
+      <button class="btn-ghost" onclick="closeModal('modalFactManual')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Tipo</label>
+          <select id="fmTipo">
+            <option value="recibida">Recibida (gasto)</option>
+            <option value="emitida">Emitida (ingreso)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Fecha</label>
+          <input type="date" id="fmFecha">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="flex:2;">
+          <label>Nombre del emisor / receptor</label>
+          <input type="text" id="fmNombre" placeholder="Nombre de la empresa o persona">
+        </div>
+        <div class="form-group">
+          <label>RFC</label>
+          <input type="text" id="fmRFC" placeholder="RFC" maxlength="13" style="text-transform:uppercase;">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="max-width:90px;">
+          <label>Serie</label>
+          <input type="text" id="fmSerie" placeholder="A" maxlength="4" style="text-transform:uppercase;">
+        </div>
+        <div class="form-group" style="max-width:110px;">
+          <label>Folio</label>
+          <input type="text" id="fmFolio" placeholder="1234">
+        </div>
+        <div class="form-group" style="flex:2;">
+          <label>UUID CFDI (opcional)</label>
+          <input type="text" id="fmUUID" placeholder="Sin CFDI — dejar vacío">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Subtotal</label>
+          <input type="number" id="fmSubtotal" step="0.01" min="0" oninput="calcFmTotal()">
+        </div>
+        <div class="form-group">
+          <label>IVA</label>
+          <input type="number" id="fmIva" step="0.01" min="0" oninput="calcFmTotal()">
+        </div>
+        <div class="form-group">
+          <label>Total</label>
+          <input type="number" id="fmTotal" step="0.01" min="0" readonly style="background:#f8f8f6;font-weight:700;">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Estado inicial</label>
+          <select id="fmEstado">
+            <option value="pendiente">Pendiente</option>
+            <option value="pagada">Pagada</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex:2;">
+          <label>Concepto / descripción</label>
+          <input type="text" id="fmConcepto" placeholder="Descripción del gasto o ingreso">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modalFactManual')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarFacturaManual()">Guardar</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══════════ MODAL DETALLE PÓLIZA ══════════ -->
 <div class="modal-bg" id="modalVerPoliza">
   <div class="modal">
@@ -713,8 +879,11 @@ let _tabActual = 'inicio';
 let _factTab = 'recibidas';
 let _bancoTab = 'mifel';
 let _rptTab = 'er';
+let _concTab = 'ventas';
 let _editPolizaId = null;
 let _lastTs = 0;
+let _pagoFactId = null;
+let _selConcFact = null, _selConcCargo = null;
 
 // ═══════════════════════════════════════════════════════════
 //  UTILS
@@ -1253,9 +1422,111 @@ function renderPolizas(){
 // ═══════════════════════════════════════════════════════════
 //  RENDER FACTURAS
 // ═══════════════════════════════════════════════════════════
-function switchFactTab(t){ _factTab=t; document.querySelectorAll('#sc-facturas .sub-tab').forEach((el,i)=>el.classList.toggle('active',i===(t==='recibidas'?0:1))); document.getElementById('factTabTitle').textContent=t==='recibidas'?'Facturas Recibidas':'Facturas Emitidas'; renderFacturas(); }
+function switchFactTab(t){
+  _factTab=t;
+  const tabs=['recibidas','emitidas','porpagar'];
+  document.querySelectorAll('#sc-facturas .sub-tab').forEach((el,i)=>el.classList.toggle('active',tabs[i]===t));
+  document.getElementById('factTabTitle').textContent=t==='recibidas'?'Facturas Recibidas':t==='emitidas'?'Facturas Emitidas':'Por Pagar';
+  const filtros=document.querySelector('#sc-facturas .filtros');
+  if(filtros) filtros.style.display=t==='porpagar'?'none':'';
+  renderFacturas();
+}
+
+function renderPorPagar(){
+  const pendientes=S.facturas.filter(f=>f.tipo==='recibida'&&f.estado==='pendiente').sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  const total=round(pendientes.reduce((s,f)=>s+f.total,0));
+  const vencidas=pendientes.filter(f=>f.fecha<today()).length;
+
+  let html=`<div class="stat-grid g3" style="margin-bottom:14px;">
+    <div class="stat"><label>Total por pagar</label><div class="val text-amber">${fmt(total)}</div><div class="sub">${pendientes.length} facturas pendientes</div></div>
+    <div class="stat"><label>Vencidas</label><div class="val ${vencidas>0?'text-red':''}">${vencidas}</div><div class="sub">fecha factura pasada</div></div>
+    <div class="stat"><label>Por vencer</label><div class="val">${pendientes.length-vencidas}</div></div>
+  </div>`;
+
+  if(!pendientes.length){
+    html+='<div class="empty">Sin facturas pendientes de pago.</div>';
+    document.getElementById('facturas-content').innerHTML=html;
+    return;
+  }
+
+  html+=`<div class="tbl-wrap"><table><thead><tr>
+    <th>Fecha factura</th><th>Proveedor</th><th>RFC</th><th>Serie/Folio</th>
+    <th class="td-num">Total</th><th style="font-size:10px;">UUID</th><th></th>
+  </tr></thead><tbody>`;
+  for(const f of pendientes){
+    const venc=f.fecha<today();
+    html+=`<tr style="${venc?'background:#fff8f8;':''}">
+      <td style="white-space:nowrap;">${fmtDate(f.fecha)}${venc?` <span class="badge badge-canc" style="font-size:9px;">Venc.</span>`:''}</td>
+      <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;">${h(f.emisorNom||'')}</td>
+      <td class="td-mono" style="font-size:11px;">${h(f.emisorRfc||'')}</td>
+      <td class="td-mono">${h(f.serie||'')}${h(f.folio||'')}</td>
+      <td class="td-num fw7">${fmt(f.total)}</td>
+      <td class="td-mono" style="font-size:10px;max-width:110px;overflow:hidden;text-overflow:ellipsis;color:#aaa;">${f.uuid?f.uuid.slice(0,8)+'…':'—'}</td>
+      <td><button class="btn btn-naranja btn-sm" onclick="openModalPago('${f.id}')">Pagar</button></td>
+    </tr>`;
+  }
+  html+=`</tbody></table></div>`;
+  document.getElementById('facturas-content').innerHTML=html;
+}
+
+function openModalPago(id){
+  const f=S.facturas.find(f=>f.id===id); if(!f) return;
+  _pagoFactId=id;
+  document.getElementById('pagoFecha').value=today();
+  document.getElementById('pagoBanco').value='mifel';
+  document.getElementById('pagoMonto').value=f.total.toFixed(2);
+  document.getElementById('pagoRef').value='';
+  document.getElementById('pagoURL').value='';
+  document.getElementById('pagoFacturaInfo').innerHTML=`
+    <strong>${h(f.emisorNom||'')}</strong> <span style="color:#888;font-size:11px;">${h(f.emisorRfc||'')}</span><br>
+    <span style="color:#888;">${fmtDate(f.fecha)} · ${h(f.serie||'')}${h(f.folio||'')}</span><br>
+    <span style="font-size:16px;font-weight:700;color:#0D2A5E;">${fmt(f.total)}</span>`;
+  document.getElementById('modalPago').classList.add('open');
+}
+
+function guardarPago(){
+  const f=S.facturas.find(f=>f.id===_pagoFactId); if(!f) return;
+  const fecha=document.getElementById('pagoFecha').value;
+  const banco=document.getElementById('pagoBanco').value;
+  const monto=round(parseFloat(document.getElementById('pagoMonto').value)||0);
+  const ref=(document.getElementById('pagoRef').value||'').trim();
+  const url=(document.getElementById('pagoURL').value||'').trim();
+
+  if(!fecha){ alert('Indica la fecha de pago'); return; }
+  if(monto<=0){ alert('El monto debe ser mayor a cero'); return; }
+
+  f.estado='pagada'; f.fechaPago=fecha;
+  f.pagoBanco=banco; f.pagoMonto=monto; f.pagoRef=ref;
+  if(url) f.pagoComprobanteURL=url;
+
+  if(banco==='mifel'||banco==='cash'){
+    S.movBanco.push({
+      id:uid(), fecha, terminal:banco,
+      desc:`Pago ${f.emisorNom||'proveedor'} ${f.serie||''}${f.folio||''}`,
+      ref, cargo:monto, abono:0, saldo:0,
+      conciliado:true, conciliadoProveedor:true, polizaId:null, ts:Date.now()
+    });
+  }
+
+  const ctaBanco=banco==='mifel'?'1111':banco==='cash'?'1112':'1101';
+  const nomBanco=banco==='mifel'?'Terminal MIFEL':banco==='cash'?'Terminal CASH':'Caja';
+  const pol={
+    id:uid(), fecha, tipo:'egreso',
+    desc:`Pago a ${f.emisorNom||'proveedor'} | ${f.serie||''}${f.folio||''}`,
+    origen:'manual', refCFDI:f.uuid||'',
+    partidas:[
+      {cta:'2101',nom:'Proveedores',debe:monto,haber:0},
+      {cta:ctaBanco,nom:nomBanco,debe:0,haber:monto}
+    ], ts:Date.now()
+  };
+  S.polizas.push(pol); f.polizaPagoId=pol.id;
+
+  closeModal('modalPago');
+  save(); renderFacturas();
+}
 
 function renderFacturas(){
+  if(_factTab==='porpagar'){ renderPorPagar(); return; }
   const desde=document.getElementById('factDesde').value;
   const hasta=document.getElementById('factHasta').value;
   const estado=document.getElementById('factEstado').value;
@@ -1293,7 +1564,7 @@ function renderFacturas(){
       <td class="td-num fw7">${fmt(f.total)}</td>
       <td><span class="badge badge-${f.estado==='pagada'?'pag':f.estado==='cancelada'?'canc':'pend'}">${f.estado}</span></td>
       <td>
-        ${f.estado==='pendiente'?`<button class="btn-ghost" onclick="marcarPagada('${f.id}')">Pagar</button>`:''}
+        ${f.estado==='pendiente'?`<button class="btn-ghost" onclick="openModalPago('${f.id}')">Pagar</button>`:''}
         ${f.estado==='pendiente'?`<button class="btn-ghost text-red" onclick="cancelarFactura('${f.id}')">✕</button>`:''}
       </td>
     </tr>`;
@@ -2404,7 +2675,161 @@ function setConcUltimos30(){
   renderConcilia();
 }
 
+function switchConcTab(t){
+  _concTab=t;
+  document.querySelectorAll('#sc-concilia .sub-tab').forEach((el,i)=>el.classList.toggle('active',['ventas','proveedores'][i]===t));
+  const filtros=document.getElementById('concilia-ventas-filtros');
+  if(filtros) filtros.style.display=t==='ventas'?'':'none';
+  renderConcilia();
+}
+
+function renderConciliaProveedores(){
+  const statsEl=document.getElementById('concilia-stats');
+  const contentEl=document.getElementById('concilia-content');
+
+  const factPend=S.facturas.filter(f=>f.tipo==='recibida'&&f.estado==='pendiente').sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  const cargos=S.movBanco.filter(m=>m.cargo>0&&!m.conciliadoProveedor).sort((a,b)=>a.fecha.localeCompare(b.fecha));
+
+  const matches=[];
+  const usedFact=new Set(), usedCargo=new Set();
+  for(const f of factPend){
+    for(const m of cargos){
+      if(usedFact.has(f.id)||usedCargo.has(m.id)) continue;
+      const difMonto=Math.abs(f.total-m.cargo);
+      const difDias=Math.abs(new Date(f.fecha)-new Date(m.fecha))/(1000*60*60*24);
+      if(difMonto<=1&&difDias<=5){
+        matches.push({fact:f,cargo:m,score:difDias});
+        usedFact.add(f.id); usedCargo.add(m.id);
+      }
+    }
+  }
+
+  const totalPend=round(factPend.reduce((s,f)=>s+f.total,0));
+  statsEl.innerHTML=`<div class="stat-grid g3" style="margin-bottom:4px;">
+    <div class="stat"><label>Facturas pendientes</label><div class="val text-amber">${fmt(totalPend)}</div><div class="sub">${factPend.length} facturas</div></div>
+    <div class="stat"><label>Matches automáticos</label><div class="val text-green">${matches.length}</div><div class="sub">monto ±$1 · fecha ±5 días</div></div>
+    <div class="stat"><label>Sin match</label><div class="val">${factPend.length-matches.length}</div></div>
+  </div>`;
+
+  if(!factPend.length){
+    contentEl.innerHTML='<div class="empty">No hay facturas recibidas pendientes de conciliar.</div>';
+    return;
+  }
+
+  let html='';
+  if(matches.length){
+    html+=`<div class="card" style="margin-bottom:14px;">
+      <div class="card-title" style="color:#2d7a2d;">Matches sugeridos (${matches.length})</div>
+      <div class="tbl-wrap"><table style="font-size:12px;">
+        <thead><tr>
+          <th>Proveedor</th><th class="td-num">Total factura</th><th>Fecha fact.</th>
+          <th>Descripción banco</th><th class="td-num">Cargo banco</th><th>Fecha banco</th>
+          <th>Dif.</th><th></th>
+        </tr></thead><tbody>`;
+    for(const {fact:f,cargo:m,score} of matches){
+      html+=`<tr style="background:#f8fff8;">
+        <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;">${h(f.emisorNom||'')}</td>
+        <td class="td-num fw7">${fmt(f.total)}</td>
+        <td style="white-space:nowrap;">${fmtDate(f.fecha)}</td>
+        <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;">${h(m.desc||'')}</td>
+        <td class="td-num">${fmt(m.cargo)}</td>
+        <td style="white-space:nowrap;">${fmtDate(m.fecha)}</td>
+        <td class="td-num text-muted" style="font-size:11px;">${score.toFixed(0)}d · ${fmt(Math.abs(f.total-m.cargo))}</td>
+        <td><button class="btn btn-primary btn-sm" onclick="confirmarConciliaProveedor('${f.id}','${m.id}')">Confirmar</button></td>
+      </tr>`;
+    }
+    html+=`</tbody></table></div></div>`;
+  }
+
+  const sinMatch=factPend.filter(f=>!matches.find(mt=>mt.fact.id===f.id));
+  const cargosSinMatch=cargos.filter(m=>!matches.find(mt=>mt.cargo.id===m.id));
+  if(sinMatch.length||cargosSinMatch.length){
+    html+=`<div class="alert-info" style="margin-bottom:12px;font-size:12px;">Selecciona una factura y un cargo bancario para conciliarlos manualmente.</div>
+    <div class="conc-grid">
+      <div class="conc-panel">
+        <div class="conc-panel-title">Facturas sin match (${sinMatch.length})</div>`;
+    for(const f of sinMatch){
+      html+=`<div class="mov-row" id="concF_${f.id}" onclick="selConcFact('${f.id}')">
+        <div class="mov-desc">${h(f.emisorNom||'Sin nombre')}</div>
+        <div class="mov-meta">${fmtDate(f.fecha)} · ${h(f.serie||'')}${h(f.folio||'')}</div>
+        <div class="mov-amt cargo">${fmt(f.total)}</div>
+      </div>`;
+    }
+    html+=`</div>
+      <div class="conc-panel">
+        <div class="conc-panel-title">Cargos bancarios sin asignar (${cargosSinMatch.length})</div>`;
+    if(!cargosSinMatch.length) html+=`<div style="padding:20px;color:#aaa;font-size:13px;">Sin cargos disponibles. Importa estados de cuenta en "Carga Semanal".</div>`;
+    for(const m of cargosSinMatch){
+      html+=`<div class="mov-row" id="concM_${m.id}" onclick="selConcCargo('${m.id}')">
+        <div class="mov-desc">${h(m.desc||'Sin descripción')}</div>
+        <div class="mov-meta">${fmtDate(m.fecha)} · ${(m.terminal||'').toUpperCase()} · ${m.ref||''}</div>
+        <div class="mov-amt cargo">${fmt(m.cargo)}</div>
+      </div>`;
+    }
+    html+=`</div></div>
+    <div style="margin-top:12px;display:flex;gap:10px;align-items:center;">
+      <button class="btn btn-primary btn-sm" onclick="confirmarConciliaManual()">Confirmar seleccionados</button>
+      <span id="concManualMsg" style="font-size:12px;color:#888;"></span>
+    </div>`;
+  }
+  contentEl.innerHTML=html;
+}
+
+function selConcFact(id){
+  if(_selConcFact){ const p=document.getElementById('concF_'+_selConcFact); if(p) p.classList.remove('sel'); }
+  _selConcFact=_selConcFact===id?null:id;
+  if(_selConcFact){ const el=document.getElementById('concF_'+_selConcFact); if(el) el.classList.add('sel'); }
+  _updateConcMsg();
+}
+function selConcCargo(id){
+  if(_selConcCargo){ const p=document.getElementById('concM_'+_selConcCargo); if(p) p.classList.remove('sel'); }
+  _selConcCargo=_selConcCargo===id?null:id;
+  if(_selConcCargo){ const el=document.getElementById('concM_'+_selConcCargo); if(el) el.classList.add('sel'); }
+  _updateConcMsg();
+}
+function _updateConcMsg(){
+  const msg=document.getElementById('concManualMsg'); if(!msg) return;
+  if(_selConcFact&&_selConcCargo){
+    const f=S.facturas.find(x=>x.id===_selConcFact);
+    const m=S.movBanco.find(x=>x.id===_selConcCargo);
+    const dif=round((f?.total||0)-(m?.cargo||0));
+    msg.textContent=`${f?.emisorNom||''} ↔ ${m?.desc||''} · Dif: ${fmt(dif)}`;
+  } else {
+    msg.textContent=_selConcFact||_selConcCargo?'Selecciona el par (factura + cargo bancario)':'';
+  }
+}
+function confirmarConciliaManual(){
+  if(!_selConcFact||!_selConcCargo){ alert('Selecciona una factura y un cargo bancario'); return; }
+  confirmarConciliaProveedor(_selConcFact,_selConcCargo);
+  _selConcFact=null; _selConcCargo=null;
+}
+function confirmarConciliaProveedor(factId,cargoId){
+  const f=S.facturas.find(x=>x.id===factId);
+  const m=S.movBanco.find(x=>x.id===cargoId);
+  if(!f||!m) return;
+
+  f.estado='pagada'; f.fechaPago=m.fecha;
+  f.pagoBanco=m.terminal||'banco'; f.pagoMonto=m.cargo; f.pagoRef=m.ref||'';
+
+  m.conciliadoProveedor=true; m.conciliado=true;
+
+  const ctaBanco=m.terminal==='mifel'?'1111':m.terminal==='cash'?'1112':'1110';
+  const nomBanco=m.terminal==='mifel'?'Terminal MIFEL':m.terminal==='cash'?'Terminal CASH':'Bancos';
+  const pol={
+    id:uid(), fecha:m.fecha, tipo:'egreso',
+    desc:`Pago a ${f.emisorNom||'proveedor'} | ${f.serie||''}${f.folio||''}`,
+    origen:'manual', refCFDI:f.uuid||'',
+    partidas:[
+      {cta:'2101',nom:'Proveedores',debe:m.cargo,haber:0},
+      {cta:ctaBanco,nom:nomBanco,debe:0,haber:m.cargo}
+    ], ts:Date.now()
+  };
+  S.polizas.push(pol); f.polizaPagoId=pol.id;
+  save(); renderConcilia();
+}
+
 function renderConcilia(){
+  if(_concTab==='proveedores'){ renderConciliaProveedores(); return; }
   const desde=document.getElementById('concDesde').value;
   const hasta=document.getElementById('concHasta').value;
 
@@ -2544,7 +2969,224 @@ function renderConcilia(){
 // ═══════════════════════════════════════════════════════════
 //  FACTURA MANUAL PLACEHOLDER
 // ═══════════════════════════════════════════════════════════
-function openModalFacturaManual(){ alert('Funcionalidad próxima: captura manual de factura'); }
+function openModalFacturaManual(){
+  document.getElementById('fmTipo').value='recibida';
+  document.getElementById('fmFecha').value=today();
+  document.getElementById('fmNombre').value='';
+  document.getElementById('fmRFC').value='';
+  document.getElementById('fmSerie').value='';
+  document.getElementById('fmFolio').value='';
+  document.getElementById('fmUUID').value='';
+  document.getElementById('fmSubtotal').value='';
+  document.getElementById('fmIva').value='';
+  document.getElementById('fmTotal').value='';
+  document.getElementById('fmEstado').value='pendiente';
+  document.getElementById('fmConcepto').value='';
+  document.getElementById('modalFactManual').classList.add('open');
+}
+function calcFmTotal(){
+  const sub=parseFloat(document.getElementById('fmSubtotal').value)||0;
+  const iva=parseFloat(document.getElementById('fmIva').value)||0;
+  document.getElementById('fmTotal').value=(sub+iva).toFixed(2);
+}
+function guardarFacturaManual(){
+  const tipo=document.getElementById('fmTipo').value;
+  const fecha=document.getElementById('fmFecha').value;
+  const nombre=(document.getElementById('fmNombre').value||'').trim();
+  const rfc=(document.getElementById('fmRFC').value||'').trim().toUpperCase();
+  const serie=(document.getElementById('fmSerie').value||'').trim().toUpperCase();
+  const folio=(document.getElementById('fmFolio').value||'').trim();
+  const uuid=(document.getElementById('fmUUID').value||'').trim();
+  const sub=round(parseFloat(document.getElementById('fmSubtotal').value)||0);
+  const iva=round(parseFloat(document.getElementById('fmIva').value)||0);
+  const total=round(sub+iva);
+  const estado=document.getElementById('fmEstado').value;
+  const concepto=(document.getElementById('fmConcepto').value||'').trim();
+
+  if(!fecha||!nombre||total<=0){ alert('Completa fecha, nombre y monto'); return; }
+
+  const esRecibida=tipo==='recibida';
+  const factura={
+    id:uid(), uuid, tipo, fecha, serie, folio,
+    emisorRfc:esRecibida?rfc:RFC_EMPRESA,
+    emisorNom:esRecibida?nombre:'INSTINTO',
+    receptorRfc:esRecibida?RFC_EMPRESA:rfc,
+    receptorNom:esRecibida?'INSTINTO':nombre,
+    subtotal:sub, descuento:0, iva, total,
+    formaPago:'', metodoPago:'',
+    conceptos:[{desc:concepto||nombre,cant:1,vu:sub,imp:sub,clave:''}],
+    estado, polizaId:null, ts:Date.now()
+  };
+
+  const fakeCFDI={
+    emisorNom:esRecibida?nombre:'INSTINTO', receptorNom:esRecibida?'INSTINTO':nombre,
+    serie, folio, uuid, fecha, subtotal:sub, descuento:0, iva, total, ivaRet:0,
+    conceptos:factura.conceptos
+  };
+  const pol=autoPolizaCFDI(fakeCFDI,esRecibida);
+  factura.polizaId=pol.id;
+  S.polizas.push(pol);
+  S.facturas.push(factura);
+
+  closeModal('modalFactManual');
+  save(); renderFacturas();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  GOOGLE DRIVE INTEGRATION
+// ═══════════════════════════════════════════════════════════
+const DRIVE_CLIENT_ID = '402449046647-u2bo4hmnl0lkd9k2a4aqnf1uqjcnrc0t.apps.googleusercontent.com';
+const DRIVE_SCOPES = 'https://www.googleapis.com/auth/drive.readonly';
+const DRIVE_API_KEY = ''; // no requerida para Picker con token OAuth
+
+let _driveToken = null;
+let _driveTokenClient = null;
+let _drivePickerMode = null; // 'xml' | 'csv'
+let _drivePendingImport = null;
+
+function _initDriveTokenClient(){
+  if(_driveTokenClient) return;
+  if(!window.google?.accounts?.oauth2) { setTimeout(_initDriveTokenClient,500); return; }
+  _driveTokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: DRIVE_CLIENT_ID,
+    scope: DRIVE_SCOPES,
+    callback: (resp) => {
+      if(resp.error){ console.error('Drive auth error',resp); return; }
+      _driveToken = resp.access_token;
+      _showDriveConnected();
+      if(_drivePickerMode) _openDrivePicker(_drivePickerMode);
+    }
+  });
+}
+window.addEventListener('load', ()=>{ setTimeout(_initDriveTokenClient, 1000); });
+
+function driveSignIn(){
+  _initDriveTokenClient();
+  if(!_driveTokenClient){ alert('Las librerías de Google aún están cargando. Intenta en un segundo.'); return; }
+  _driveTokenClient.requestAccessToken();
+}
+function driveSignOut(){
+  if(_driveToken) google.accounts.oauth2.revoke(_driveToken, ()=>{});
+  _driveToken = null;
+  document.getElementById('driveAuthSection').style.display='';
+  document.getElementById('drivePickerSection').style.display='none';
+  document.getElementById('driveLog').style.display='none';
+  _drivePendingImport=null;
+}
+function _showDriveConnected(){
+  document.getElementById('driveAuthSection').style.display='none';
+  document.getElementById('drivePickerSection').style.display='';
+  document.getElementById('driveUserInfo').textContent='Conectado a Google Drive';
+}
+
+function drivePickXML(){ _drivePickerMode='xml'; if(!_driveToken){ driveSignIn(); return; } _openDrivePicker('xml'); }
+function drivePickCSV(){ _drivePickerMode='csv'; if(!_driveToken){ driveSignIn(); return; } _openDrivePicker('csv'); }
+
+function _openDrivePicker(mode){
+  if(!window.google?.picker){ gapi.load('picker', ()=>_buildPicker(mode)); return; }
+  _buildPicker(mode);
+}
+function _buildPicker(mode){
+  const mimeTypes = mode==='xml'
+    ? 'text/xml,application/xml'
+    : 'text/csv,text/plain,application/vnd.ms-excel';
+
+  const view = new google.picker.DocsView()
+    .setIncludeFolders(true)
+    .setSelectFolderEnabled(false)
+    .setMimeTypes(mimeTypes);
+
+  const picker = new google.picker.PickerBuilder()
+    .addView(view)
+    .addView(new google.picker.DocsView(google.picker.ViewId.FOLDERS).setSelectFolderEnabled(false).setMimeTypes(mimeTypes))
+    .setOAuthToken(_driveToken)
+    .setTitle(mode==='xml'?'Selecciona facturas XML (CFDI)':'Selecciona estado de cuenta CSV')
+    .enableFeature(google.picker.Feature.MULTISELECT_ENABLED)
+    .setCallback((data)=>_drivePickerCallback(data, mode))
+    .build();
+  picker.setVisible(true);
+}
+
+async function _drivePickerCallback(data, mode){
+  if(data.action !== google.picker.Action.PICKED) return;
+  const files = data.docs || [];
+  if(!files.length) return;
+
+  const logEl = document.getElementById('driveLogContent');
+  const logBox = document.getElementById('driveLog');
+  logBox.style.display=''; logEl.innerHTML='';
+  document.getElementById('driveActions').style.display='none';
+
+  const log = (msg, cls='') => {
+    logEl.innerHTML += `<span class="${cls}">${msg}\n</span>`;
+    logEl.scrollTop=logEl.scrollHeight;
+  };
+
+  log(`Descargando ${files.length} archivo(s) desde Drive...`);
+
+  const newFacturas=[], newPolizas=[], newMovs=[];
+
+  for(const file of files){
+    try{
+      const resp = await fetch(`https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`, {
+        headers:{ Authorization: `Bearer ${_driveToken}` }
+      });
+      if(!resp.ok){ log(`✗ Error al descargar: ${file.name}`, 'log-err'); continue; }
+      const text = await resp.text();
+
+      if(mode==='xml'){
+        const cfdi = parseCFDI(text);
+        if(!cfdi){ log(`⚠ No es CFDI válido: ${file.name}`, 'log-warn'); continue; }
+        const esRecibida = cfdi.receptorRfc===RFC_EMPRESA;
+        const esEmitida  = cfdi.emisorRfc===RFC_EMPRESA;
+        if(!esRecibida&&!esEmitida){ log(`⚠ RFC no coincide: ${file.name}`, 'log-warn'); continue; }
+        if(S.facturas.find(f=>f.uuid&&f.uuid===cfdi.uuid)){ log(`⏭ Duplicado: ${file.name}`, 'log-warn'); continue; }
+        const factura={
+          id:uid(), uuid:cfdi.uuid, tipo:esRecibida?'recibida':'emitida',
+          fecha:cfdi.fecha, serie:cfdi.serie, folio:cfdi.folio,
+          emisorRfc:cfdi.emisorRfc, emisorNom:cfdi.emisorNom,
+          receptorRfc:cfdi.receptorRfc, receptorNom:cfdi.receptorNom,
+          subtotal:cfdi.subtotal, descuento:cfdi.descuento,
+          iva:cfdi.iva, total:cfdi.total,
+          formaPago:cfdi.formaPago, metodoPago:cfdi.metodoPago,
+          conceptos:cfdi.conceptos, estado:'pendiente',
+          polizaId:null, driveFileId:file.id, ts:Date.now()
+        };
+        const poliza=autoPolizaCFDI(cfdi,esRecibida);
+        factura.polizaId=poliza.id;
+        newFacturas.push(factura); newPolizas.push(poliza);
+        log(`✓ ${esRecibida?'Recibida':'Emitida'}: ${cfdi.emisorNom||cfdi.receptorNom} | ${fmt(cfdi.total)}`);
+      } else {
+        const terminal = file.name.toLowerCase().includes('cash')?'cash':'mifel';
+        const movs = parseCSVBanco(text, terminal);
+        const nuevos = movs.filter(m=>!S.movBanco.find(e=>e.fecha===m.fecha&&e.desc===m.desc&&Math.abs(e.abono-m.abono)<0.01&&Math.abs(e.cargo-m.cargo)<0.01));
+        newMovs.push(...nuevos);
+        log(`✓ CSV ${terminal.toUpperCase()}: ${nuevos.length} movimientos nuevos de ${file.name}`);
+      }
+    }catch(e){ log(`✗ ${file.name}: ${e.message}`, 'log-err'); }
+  }
+
+  log(`━━ ${newFacturas.length} facturas · ${newPolizas.length} pólizas · ${newMovs.length} mov. bancarios ━━`);
+  _drivePendingImport = { newFacturas, newPolizas, newMovs };
+  if(newFacturas.length||newMovs.length){
+    document.getElementById('driveActions').style.display='flex';
+  }
+}
+
+function confirmDriveImport(){
+  if(!_drivePendingImport) return;
+  const {newFacturas,newPolizas,newMovs}=_drivePendingImport;
+  S.facturas.push(...newFacturas);
+  S.polizas.push(...newPolizas);
+  S.movBanco.push(...newMovs);
+  _drivePendingImport=null;
+  document.getElementById('driveLog').style.display='none';
+  save(); renderCurrent();
+}
+function cancelDriveImport(){
+  _drivePendingImport=null;
+  document.getElementById('driveLog').style.display='none';
+}
 
 // ═══════════════════════════════════════════════════════════
 //  EXPORT EXCEL
