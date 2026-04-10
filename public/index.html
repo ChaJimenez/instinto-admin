@@ -321,6 +321,9 @@ hr.sec{border:none;border-top:1px solid #e8e8e8;margin:16px 0;}
         <button class="btn btn-primary" onclick="drivePickXML()">
           Seleccionar facturas XML (CFDI)
         </button>
+        <button class="btn btn-outline" onclick="drivePickPDF()">
+          Seleccionar factura PDF
+        </button>
         <button class="btn btn-outline" onclick="drivePickCSV()">
           Seleccionar estado de cuenta CSV
         </button>
@@ -3025,6 +3028,7 @@ function guardarFacturaManual(){
   };
   const pol=autoPolizaCFDI(fakeCFDI,esRecibida);
   factura.polizaId=pol.id;
+  if(window._driveUrlPending){ factura.pagoComprobanteURL=window._driveUrlPending; window._driveUrlPending=null; }
   S.polizas.push(pol);
   S.facturas.push(factura);
 
@@ -3081,6 +3085,7 @@ function _showDriveConnected(){
 
 function drivePickXML(){ _drivePickerMode='xml'; if(!_driveToken){ driveSignIn(); return; } _openDrivePicker('xml'); }
 function drivePickCSV(){ _drivePickerMode='csv'; if(!_driveToken){ driveSignIn(); return; } _openDrivePicker('csv'); }
+function drivePickPDF(){ _drivePickerMode='pdf'; if(!_driveToken){ driveSignIn(); return; } _openDrivePicker('pdf'); }
 
 function _openDrivePicker(mode){
   if(!window.google?.picker){ gapi.load('picker', ()=>_buildPicker(mode)); return; }
@@ -3089,6 +3094,8 @@ function _openDrivePicker(mode){
 function _buildPicker(mode){
   const mimeTypes = mode==='xml'
     ? 'text/xml,application/xml'
+    : mode==='pdf'
+    ? 'application/pdf'
     : 'text/csv,text/plain,application/vnd.ms-excel';
 
   const view = new google.picker.DocsView()
@@ -3123,6 +3130,37 @@ async function _drivePickerCallback(data, mode){
   };
 
   log(`Descargando ${files.length} archivo(s) desde Drive...`);
+
+  // Modo PDF: abrir modal de factura manual con el link pre-cargado
+  if(mode==='pdf'){
+    logBox.style.display='none';
+    if(files.length===1){
+      const file=files[0];
+      const driveUrl=`https://drive.google.com/file/d/${file.id}/view`;
+      openModalFacturaManual();
+      document.getElementById('pagoURL') && (document.getElementById('pagoURL').value=driveUrl);
+      // Pre-fill URL in fmConcepto as reference
+      document.getElementById('fmConcepto').value=file.name.replace('.pdf','').replace('.PDF','');
+      document.getElementById('fmUUID').value='';
+      // Put the drive URL somewhere accessible — we store it via a temp var
+      window._driveUrlPending=driveUrl;
+      // Patch guardarFacturaManual to include the url
+      const origGuardar=window._origGuardarFM||guardarFacturaManual;
+      window._origGuardarFM=origGuardar;
+    } else {
+      // Multiple PDFs: open one modal per file sequentially? Too complex.
+      // Just show links so user can open each one
+      logBox.style.display='';
+      logEl.innerHTML='';
+      log(`Seleccionaste ${files.length} PDFs. Ábrelos y captura cada uno con "+ Manual":`);
+      files.forEach(f=>{
+        const url=`https://drive.google.com/file/d/${f.id}/view`;
+        logEl.innerHTML+=`<a href="${url}" target="_blank" style="color:#90ee90;display:block;margin:2px 0;">${h(f.name)}</a>`;
+      });
+      document.getElementById('driveActions').style.display='none';
+    }
+    return;
+  }
 
   const newFacturas=[], newPolizas=[], newMovs=[];
 
