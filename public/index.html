@@ -2406,39 +2406,56 @@ async function handlePDFSelect(file){
   }
 }
 
+function updateImgBalance(){
+  const g=id=>parseFloat(document.getElementById(id)?.value||0)||0;
+  const vb=g('imgVentas'), deb=g('imgDebito'), cred=g('imgCredito'), ef=g('imgEfectivo');
+  const distribuido=round(deb+cred+ef);
+  const pendiente=round(vb-distribuido);
+  const el=document.getElementById('imgBalance'); if(!el) return;
+  const ok=vb>0&&Math.abs(pendiente)<=1;
+  const color=ok?'#2d7a2d':Math.abs(pendiente)>500?'#e24b4a':'#b06800';
+  el.innerHTML=`<div style="display:flex;gap:24px;padding:10px 14px;border-radius:8px;background:${ok?'#f0fff4':'#fff8e1'};border:1px solid ${ok?'#a8e6c0':'#f0cc78'};font-size:13px;margin-top:10px;">
+    <div><span style="color:#888;font-size:11px;display:block;">VENTA BRUTA</span><strong>${fmt(vb)}</strong></div>
+    <div><span style="color:#888;font-size:11px;display:block;">DISTRIBUIDO</span><strong>${fmt(distribuido)}</strong></div>
+    <div><span style="color:#888;font-size:11px;display:block;">POR DISTRIBUIR</span><strong style="color:${color};">${ok?'✓ Cuadra':fmt(pendiente)}</strong></div>
+  </div>`;
+}
+
 function showImageForm(imgUrl){
-  const today=new Date().toISOString().slice(0,10);
+  const ini=startOfMonth(), fin=endOfMonth();
   document.getElementById('modalPDF').querySelector('.modal-title').textContent='Importar imagen — Toteat';
   document.getElementById('pdfPreviewBody').innerHTML=`
     <img src="${imgUrl}" style="width:100%;border-radius:6px;margin-bottom:14px;border:1px solid #e0e0e0;" onload="URL.revokeObjectURL(this.src)">
     <div style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">Ingresa los datos del reporte</div>
     <div class="form-row" style="margin-bottom:8px;">
-      <div class="form-group"><label>Fecha inicio</label><input type="date" id="imgFechaInicio" value="${today}"></div>
-      <div class="form-group"><label>Fecha fin</label><input type="date" id="imgFechaFin" value="${today}"></div>
+      <div class="form-group"><label>Fecha inicio</label><input type="date" id="imgFechaInicio" value="${ini}"></div>
+      <div class="form-group"><label>Fecha fin</label><input type="date" id="imgFechaFin" value="${fin}"></div>
     </div>
     <div class="form-row" style="margin-bottom:8px;">
-      <div class="form-group"><label>Venta Bruta (c/IVA, post-desc.)</label><input type="number" id="imgVentas" step="0.01" placeholder="0.00"></div>
+      <div class="form-group"><label style="color:#c0392b;font-weight:700;">★ Venta Bruta (c/IVA, post-desc.) <span style="font-weight:400;color:#e24b4a;font-size:11px;">requerido</span></label><input type="number" id="imgVentas" step="0.01" placeholder="0.00" oninput="updateImgBalance()" style="border-color:#c0392b;"></div>
       <div class="form-group"><label>Descuentos</label><input type="number" id="imgDesc" step="0.01" placeholder="0.00"></div>
     </div>
     <div class="form-row" style="margin-bottom:8px;">
       <div class="form-group"><label>Tarjeta Débito → Terminal</label>
         <div style="display:flex;gap:6px;">
-          <input type="number" id="imgDebito" step="0.01" placeholder="0.00" style="flex:2;">
+          <input type="number" id="imgDebito" step="0.01" placeholder="0.00" style="flex:2;" oninput="updateImgBalance()">
           <select id="imgMapDeb" style="flex:1;"><option value="mifel">MIFEL</option><option value="cash">CASH</option></select>
         </div></div>
       <div class="form-group"><label>Tarjeta Crédito → Terminal</label>
         <div style="display:flex;gap:6px;">
-          <input type="number" id="imgCredito" step="0.01" placeholder="0.00" style="flex:2;">
+          <input type="number" id="imgCredito" step="0.01" placeholder="0.00" style="flex:2;" oninput="updateImgBalance()">
           <select id="imgMapCred" style="flex:1;"><option value="cash">CASH</option><option value="mifel">MIFEL</option></select>
         </div></div>
     </div>
-    <div class="form-row">
-      <div class="form-group"><label>Efectivo</label><input type="number" id="imgEfectivo" step="0.01" placeholder="0.00"></div>
+    <div class="form-row" style="margin-bottom:4px;">
+      <div class="form-group"><label>Efectivo</label><input type="number" id="imgEfectivo" step="0.01" placeholder="0.00" oninput="updateImgBalance()"></div>
       <div class="form-group"><label>Propinas</label><input type="number" id="imgPropinas" step="0.01" placeholder="0.00"></div>
       <div class="form-group"><label>Observaciones</label><input type="text" id="imgObs" value="Imagen Toteat"></div>
-    </div>`;
+    </div>
+    <div id="imgBalance"></div>`;
   document.getElementById('pdfConfirmBtn').onclick=confirmarImageImport;
   document.getElementById('modalPDF').classList.add('open');
+  updateImgBalance();
 }
 
 function confirmarImageImport(){
@@ -2446,6 +2463,8 @@ function confirmarImageImport(){
   const fi=document.getElementById('imgFechaInicio').value;
   const ff=document.getElementById('imgFechaFin').value;
   if(!fi||!ff){alert('Completa las fechas');return;}
+  const vbCheck=parseFloat(document.getElementById('imgVentas')?.value||0)||0;
+  if(vbCheck===0){alert('⚠️ Venta Bruta es $0 — ingresa el monto antes de guardar.');return;}
   const traslape=cortesTraslape(fi,ff);
   if(traslape.length){
     const lista=traslape.map(c=>`• ${c.esPeriodo?`${fmtDate(c.periodoInicio||c.fecha)} – ${fmtDate(c.fecha)}`:fmtDate(c.fecha)} (${fmt(c.ventasBrutas)})`).join('\n');
