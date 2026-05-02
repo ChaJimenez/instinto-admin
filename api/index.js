@@ -20,25 +20,28 @@ const K = {
   cortes:    'adm:cortes',
   catalogo:  'adm:catalogo',
   cfg:       'adm:cfg',
+  pagosCash: 'adm:pagos_cash',
   ts:        'adm:lastUpdate',
 };
 
 // ── Cargar todos los datos ──
 app.get('/api/datos', async (req, res) => {
   try {
-    const [polizas, facturas, movBanco, cortes, catalogo, cfg] = await Promise.all([
+    const [polizas, facturas, movBanco, cortes, catalogo, cfg, pagosCash] = await Promise.all([
       kv.get(K.polizas),
       kv.get(K.facturas),
       kv.get(K.movBanco),
       kv.get(K.cortes),
       kv.get(K.catalogo),
       kv.get(K.cfg),
+      kv.get(K.pagosCash),
     ]);
     res.json({
-      polizas:  polizas  || [],
-      facturas: facturas || [],
-      movBanco: movBanco || [],
-      cortes:   cortes   || [],
+      polizas:   polizas   || [],
+      facturas:  facturas  || [],
+      movBanco:  movBanco  || [],
+      cortes:    cortes    || [],
+      pagosCash: pagosCash || [],
       catalogo: catalogo || null,
       cfg: cfg || {
         empresa: 'INSTINTO',
@@ -59,15 +62,16 @@ app.get('/api/datos', async (req, res) => {
 // ── Guardar todos los datos ──
 app.post('/api/guardar', async (req, res) => {
   try {
-    const { polizas, facturas, movBanco, cortes, catalogo, cfg } = req.body;
+    const { polizas, facturas, movBanco, cortes, catalogo, cfg, pagosCash } = req.body;
     await Promise.all([
-      kv.set(K.polizas,  polizas  || []),
-      kv.set(K.facturas, facturas || []),
-      kv.set(K.movBanco, movBanco || []),
-      kv.set(K.cortes,   cortes   || []),
-      kv.set(K.catalogo, catalogo || null),
-      kv.set(K.cfg,      cfg      || {}),
-      kv.set(K.ts,       Date.now()),
+      kv.set(K.polizas,   polizas   || []),
+      kv.set(K.facturas,  facturas  || []),
+      kv.set(K.movBanco,  movBanco  || []),
+      kv.set(K.cortes,    cortes    || []),
+      kv.set(K.catalogo,  catalogo  || null),
+      kv.set(K.cfg,       cfg       || {}),
+      kv.set(K.pagosCash, pagosCash || []),
+      kv.set(K.ts,        Date.now()),
     ]);
     res.json({ ok: true });
   } catch (e) {

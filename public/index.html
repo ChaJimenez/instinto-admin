@@ -130,6 +130,7 @@ tr:hover td{background:#fafaf8;}
 .er-section{margin-bottom:8px;}
 .er-row{display:flex;justify-content:space-between;padding:5px 10px;font-size:13px;}
 .er-row.indent{padding-left:26px;color:#555;}
+.er-row.er-drill{cursor:pointer;}.er-row.er-drill:hover{background:#f0f4ff;border-radius:4px;}
 .er-row.total{font-weight:700;background:#f0f4ff;border-radius:6px;margin-top:4px;}
 .er-row.subtotal{font-weight:600;border-top:1px solid #e0e0e0;padding-top:8px;}
 .er-row.grand{font-size:16px;font-weight:700;background:#0D2A5E;color:#fff;border-radius:8px;padding:12px 14px;margin-top:8px;}
@@ -348,7 +349,7 @@ hr.sec{border:none;border-top:1px solid #e8e8e8;margin:16px 0;}
       <div class="dz-sub">Archivo INSTINTO_ventas_*.json exportado desde el Dashboard Gerencial</div>
     </div>
     <input type="file" id="filePOSJson" accept=".json" style="display:none" onchange="handlePOSJsonSelect(this.files[0])">
-    <div id="posImportPanel" style="display:none;margin-top:14px;">
+    <div id="posImportPanel" style="display:none;margin-top:14px;"><!-- posImportPanel -->
       <div id="posImportResumen" style="margin-bottom:12px;"></div>
       <div style="font-size:11px;color:#888;margin-bottom:8px;">MIFEL + CASH deben sumar el total de Tarjeta. Ajusta según los vouchers físicos.</div>
       <div class="tbl-wrap">
@@ -376,6 +377,59 @@ hr.sec{border:none;border-top:1px solid #e8e8e8;margin:16px 0;}
         <span id="posImportMsg" style="font-size:13px;"></span>
       </div>
     </div>
+  </div>
+
+  <!-- ══ CARD 6: Pagos Mangobiche ══ -->
+  <div class="card" style="margin-top:14px;border-top:3px solid #F5A020;">
+    <div class="card-title" style="color:#F5A020;display:flex;align-items:center;gap:8px;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="#F5A020"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1H6.6c.12 2.19 1.76 3.42 3.7 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg>
+      6. Pagos Mangobiche — Sin Factura
+    </div>
+    <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;margin-bottom:16px;">
+      <!-- Imagen comprobante -->
+      <div style="flex:0 0 auto;">
+        <div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;margin-bottom:6px;">Comprobante</div>
+        <div id="pcDz" onclick="document.getElementById('pcFile').click()" style="border:2px dashed #ddd;border-radius:8px;width:140px;height:110px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;background:#fafafa;overflow:hidden;position:relative;">
+          <img id="pcPreview" style="display:none;width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0;">
+          <span id="pcDzLabel" style="font-size:11px;color:#bbb;text-align:center;pointer-events:none;">📎<br>Subir imagen</span>
+        </div>
+        <input type="file" id="pcFile" accept="image/*" style="display:none" onchange="pcSelectImg(this)">
+      </div>
+      <!-- Campos -->
+      <div style="flex:1;min-width:260px;">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Fecha</label>
+            <input type="date" id="pcFecha">
+          </div>
+          <div class="form-group">
+            <label>Monto</label>
+            <input type="number" id="pcMonto" placeholder="0.00" step="0.01" min="0" style="width:120px;">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group" style="flex:2;">
+            <label>Beneficiario</label>
+            <input type="text" id="pcBenef" placeholder="Nombre / Proveedor">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group" style="flex:2;">
+            <label>Concepto</label>
+            <input type="text" id="pcConcepto" placeholder="Descripción del pago">
+          </div>
+          <div class="form-group">
+            <label>Cuenta contable</label>
+            <select id="pcCta"></select>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <button class="btn btn-primary" onclick="pcGuardar()">Registrar pago</button>
+          <span id="pcMsg" style="font-size:13px;color:#16a34a;"></span>
+        </div>
+      </div>
+    </div>
+    <div id="pcList"></div>
   </div>
 </div>
 
@@ -868,6 +922,7 @@ let S = {
   facturas: [],
   movBanco: [],
   cortes: [],
+  pagosCash: [],
   catalogo: null,
   cfg: {
     empresa:'INSTINTO', rfc:RFC_EMPRESA,
@@ -950,11 +1005,12 @@ async function load(){
   try{
     const r=await fetch('/api/datos');
     const d=await r.json();
-    S.polizas  = d.polizas  ||[];
-    S.facturas = d.facturas ||[];
-    S.movBanco = d.movBanco ||[];
-    S.cortes   = d.cortes   ||[];
-    S.catalogo = d.catalogo ||null;
+    S.polizas   = d.polizas   ||[];
+    S.facturas  = d.facturas  ||[];
+    S.movBanco  = d.movBanco  ||[];
+    S.cortes    = d.cortes    ||[];
+    S.pagosCash = d.pagosCash ||[];
+    S.catalogo  = d.catalogo  ||null;
     if(d.cfg) Object.assign(S.cfg,d.cfg);
     dot(true);
   }catch(e){ dot(false); console.error(e); }
@@ -1321,6 +1377,7 @@ function goTab(tab){
 }
 function renderCurrent(){
   if(_tabActual==='inicio') renderInicio();
+  else if(_tabActual==='carga') pcInitForm();
   else if(_tabActual==='concilia') renderConcilia();
   else if(_tabActual==='polizas') renderPolizas();
   else if(_tabActual==='facturas') renderFacturas();
@@ -1625,6 +1682,33 @@ function renderBancos(){
     </tr>`;
   }
   html+=`</tbody></table></div>`;
+
+  // Pagos Mangobiche (sin factura) — solo en pestaña CASH
+  if(_bancoTab==='cash' && S.pagosCash.length){
+    const pagos=S.pagosCash.slice().sort((a,b)=>b.fecha.localeCompare(a.fecha));
+    const totalPagos=round(pagos.reduce((s,p)=>s+p.monto,0));
+    html+=`<div style="margin-top:20px;">
+      <div class="sec-title" style="margin-bottom:10px;">Pagos Mangobiche sin factura — ${fmt(totalPagos)} total</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">`;
+    for(const p of pagos){
+      html+=`<div style="display:flex;gap:10px;align-items:center;background:#fffdf7;border:1px solid #fce8b2;border-radius:8px;padding:10px;">
+        ${p.img?`<img src="${p.img}" style="width:56px;height:42px;object-fit:cover;border-radius:5px;flex-shrink:0;cursor:pointer;" onclick="pcVerImg('${p.id}')">`:
+          '<div style="width:56px;height:42px;background:#f5f5f5;border-radius:5px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px;">💸</div>'}
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:600;">${h(p.beneficiario)}</div>
+          <div style="font-size:11px;color:#888;">${fmtDate(p.fecha)} · ${h(p.concepto)} · <span class="td-mono">${p.cta} ${getNomCuenta(p.cta)}</span></div>
+        </div>
+        <div style="font-weight:700;color:#0D2A5E;white-space:nowrap;">${fmt(p.monto)}</div>
+        <button class="btn-ghost text-red" onclick="pcEliminar('${p.id}')" title="Eliminar">✕</button>
+      </div>`;
+    }
+    html+=`</div></div>`;
+  } else if(_bancoTab==='cash'){
+    html+=`<div style="margin-top:16px;padding:14px;background:#fffdf7;border-radius:8px;font-size:13px;color:#888;text-align:center;">
+      Sin pagos Mangobiche registrados. Ve a <b>Carga Semanal → Card 6</b> para registrar pagos sin factura.
+    </div>`;
+  }
+
   document.getElementById('bancos-content').innerHTML=html;
 }
 
@@ -1637,6 +1721,137 @@ function desconciliarMov(id){
   m.conciliado=false; save(); renderBancos();
 }
 
+
+// ═══════════════════════════════════════════════════════════
+//  PAGOS MANGOBICHE (sin factura)
+// ═══════════════════════════════════════════════════════════
+let _pcImg = null;
+
+function pcInitForm(){
+  document.getElementById('pcFecha').value = today();
+  const sel = document.getElementById('pcCta');
+  if(sel && !sel.options.length){
+    const gastos = getCatalogo().filter(c => c.tipo === 'gasto' && c.nivel >= 2);
+    sel.innerHTML = gastos.map(c => `<option value="${c.cta}">${c.cta} · ${c.nom}</option>`).join('');
+  }
+  renderPCList();
+}
+
+function pcCompressImg(file, cb){
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 800;
+      let w = img.width, h = img.height;
+      if(w > MAX){ h = Math.round(h * MAX / w); w = MAX; }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      cb(canvas.toDataURL('image/jpeg', 0.68));
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function pcSelectImg(input){
+  if(!input.files[0]) return;
+  pcCompressImg(input.files[0], b64 => {
+    _pcImg = b64;
+    const prev = document.getElementById('pcPreview');
+    prev.src = b64; prev.style.display = 'block';
+    document.getElementById('pcDzLabel').style.display = 'none';
+  });
+}
+
+function pcGuardar(){
+  const fecha    = document.getElementById('pcFecha').value;
+  const monto    = parseFloat(document.getElementById('pcMonto').value);
+  const benef    = (document.getElementById('pcBenef').value||'').trim();
+  const concepto = (document.getElementById('pcConcepto').value||'').trim();
+  const cta      = document.getElementById('pcCta').value;
+  const msg      = document.getElementById('pcMsg');
+  if(!fecha||!monto||!benef||!concepto||!cta){
+    msg.style.color='#e24b4a'; msg.textContent='Completa todos los campos'; return;
+  }
+  const polId = uid();
+  const pagoId = uid();
+  S.pagosCash.push({ id:pagoId, fecha, monto, beneficiario:benef, concepto, cta, img:_pcImg, polizaId:polId, ts:Date.now() });
+  S.polizas.push({
+    id:polId, fecha, tipo:'egreso', origen:'pagocash',
+    desc:`${benef} — ${concepto}`, ts:Date.now(),
+    partidas:[
+      { cta, nom:getNomCuenta(cta), debe:monto, haber:0 },
+      { cta:'1112', nom:'Terminal CASH', debe:0, haber:monto }
+    ]
+  });
+  save();
+  // Reset
+  _pcImg = null;
+  document.getElementById('pcFile').value = '';
+  document.getElementById('pcPreview').style.display = 'none';
+  document.getElementById('pcDzLabel').style.display = '';
+  document.getElementById('pcMonto').value = '';
+  document.getElementById('pcBenef').value = '';
+  document.getElementById('pcConcepto').value = '';
+  msg.style.color='#16a34a'; msg.textContent='Pago registrado ✓';
+  setTimeout(()=>{ msg.textContent=''; }, 2500);
+  renderPCList();
+}
+
+function renderPCList(){
+  const el = document.getElementById('pcList');
+  if(!el) return;
+  const list = S.pagosCash.slice().sort((a,b) => b.fecha.localeCompare(a.fecha)).slice(0, 8);
+  if(!list.length){ el.innerHTML = ''; return; }
+  el.innerHTML = `<div class="sec-title" style="margin-bottom:8px;margin-top:4px;">Últimos pagos registrados</div>
+    <div style="display:flex;flex-direction:column;gap:6px;">` +
+    list.map(p => `<div style="display:flex;gap:10px;align-items:center;background:#fafafa;border-radius:8px;padding:9px 12px;">
+      ${p.img ? `<img src="${p.img}" style="width:44px;height:34px;object-fit:cover;border-radius:4px;flex-shrink:0;cursor:pointer;" onclick="pcVerImg('${p.id}')">` :
+        '<div style="width:44px;height:34px;background:#eee;border-radius:4px;flex-shrink:0;"></div>'}
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:12px;font-weight:600;">${h(p.beneficiario)}</div>
+        <div style="font-size:11px;color:#888;">${fmtDate(p.fecha)} · ${h(p.concepto)}</div>
+      </div>
+      <div style="font-weight:700;color:#0D2A5E;font-size:13px;white-space:nowrap;">${fmt(p.monto)}</div>
+      <button class="btn-ghost text-red" onclick="pcEliminar('${p.id}')" style="font-size:13px;">✕</button>
+    </div>`).join('') + `</div>`;
+}
+
+function pcEliminar(id){
+  if(!confirm('¿Eliminar este pago y su póliza?')) return;
+  const pago = S.pagosCash.find(p => p.id === id);
+  S.pagosCash = S.pagosCash.filter(p => p.id !== id);
+  if(pago?.polizaId) S.polizas = S.polizas.filter(p => p.id !== pago.polizaId);
+  save(); renderPCList();
+  if(_bancoTab==='cash') renderBancos();
+}
+
+let _pcVerImgId = null;
+function pcVerImg(id){
+  const p = S.pagosCash.find(x => x.id === id);
+  if(!p?.img) return;
+  _pcVerImgId = id;
+  let dlg = document.getElementById('pcImgModal');
+  if(!dlg){
+    dlg = document.createElement('div');
+    dlg.id = 'pcImgModal';
+    dlg.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;display:flex;align-items:center;justify-content:center;';
+    dlg.onclick = () => dlg.style.display = 'none';
+    document.body.appendChild(dlg);
+  }
+  dlg.innerHTML = `<img src="${p.img}" style="max-width:90vw;max-height:88vh;border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.5);">`;
+  dlg.style.display = 'flex';
+}
+
+function drillToAux(cta){
+  switchRptTab('aux');
+  setTimeout(()=>{
+    const el = document.getElementById('auxCta');
+    if(el){ el.value = cta; renderReporte(); }
+  }, 0);
+}
 
 // ═══════════════════════════════════════════════════════════
 //  RENDER REPORTES
@@ -1659,7 +1874,8 @@ function renderReporte(){
 
 function renderER(desde,hasta){
   const er=calcEstadoResultados(desde,hasta);
-  const rowD=(label,val,cls='')=>`<div class="er-row indent"><span>${label}</span><span class="${cls}">${fmt(val)}</span></div>`;
+  const rowD=(label,val,cls='',cta='')=>`<div class="er-row indent${cta?' er-drill':''}" ${cta?`onclick="drillToAux('${cta}')" title="Ver movimientos de ${label}"`:''}>
+    <span>${label}</span><span class="${cls}">${fmt(val)}${cta?`<span style="font-size:10px;color:#aaa;margin-left:6px;">↗</span>`:''}</span></div>`;
   const rowT=(label,val,cls='')=>`<div class="er-row subtotal"><span>${label}</span><span class="${cls} fw7">${fmt(val)}</span></div>`;
 
   let html=`<div class="card">
@@ -1675,7 +1891,7 @@ function renderER(desde,hasta){
 
   for(const [k,v] of Object.entries(er.detalleIngresos)){
     const val=round(v.haber-v.debe);
-    if(val!==0) html+=rowD(getNomCuenta(k),val);
+    if(val!==0) html+=rowD(getNomCuenta(k),val,'',k);
   }
   html+=rowT('Ventas brutas',er.ingBruto);
   if(er.descuentos) html+=rowD('(–) Descuentos y Cortesías',-er.descuentos,'text-red');
@@ -1685,7 +1901,7 @@ function renderER(desde,hasta){
     <div class="er-row" style="font-weight:600;color:#888;font-size:11px;text-transform:uppercase;">COSTO DE VENTAS</div>`;
   for(const [k,v] of Object.entries(er.detalleCostos)){
     const val=round(v.debe-v.haber);
-    if(val!==0) html+=rowD(getNomCuenta(k),val,'text-red');
+    if(val!==0) html+=rowD(getNomCuenta(k),val,'text-red',k);
   }
   html+=rowT('Total Costo de Ventas',er.costoVentas,'text-amber');
   html+=`<div class="er-row total"><span>UTILIDAD BRUTA</span><span class="${er.utilBruta>=0?'text-green':'text-red'}">${fmt(er.utilBruta)}</span></div>`;
@@ -1702,7 +1918,7 @@ function renderER(desde,hasta){
   for(const [,g] of Object.entries(gruposGasto)){
     if(g.total===0) continue;
     html+=`<div class="er-row" style="font-weight:600;padding-left:10px;margin-top:6px;">${g.nom}</div>`;
-    for(const s of g.subs) html+=rowD(s.nom,s.val,'text-amber');
+    for(const s of g.subs) html+=rowD(s.nom,s.val,'text-amber',s.k);
   }
   html+=rowT('Total Gastos de Operación',er.gastos6,'text-red');
   html+=`<div class="er-row total"><span>UTILIDAD DE OPERACIÓN</span><span class="${er.utilOp>=0?'text-green':'text-red'}">${fmt(er.utilOp)}</span></div>`;
@@ -1789,7 +2005,6 @@ function renderBalanza(desde,hasta){
 }
 
 function renderAuxiliares(desde,hasta){
-  // Show selector for account
   const cuentasConMov=new Set();
   for(const p of S.polizas){
     if(desde&&p.fecha<desde) continue;
@@ -1797,7 +2012,34 @@ function renderAuxiliares(desde,hasta){
     for(const pt of (p.partidas||[])) cuentasConMov.add(pt.cta);
   }
   const sorted=[...cuentasConMov].sort();
-  const selCta=document.getElementById('auxCta')?.value||sorted[0]||'';
+  const prevSel=document.getElementById('auxCta')?.value||'';
+  const selCta=sorted.includes(prevSel)?prevSel:(sorted[0]||'');
+
+  const auxRows=(cta)=>{
+    const movs=getMovsCuenta(cta,desde,hasta);
+    const sn=getSaldoNormal(cta);
+    let saldoAcum=0;
+    let rows=`<div style="overflow-x:auto;margin-top:4px;"><div class="aux-row header"><span>Fecha</span><span>Descripción</span><span>Debe</span><span>Haber</span><span>Saldo</span></div>`;
+    if(!movs.length){ rows+=`<div class="aux-row"><span colspan="5" style="color:#aaa;">Sin movimientos</span></div>`; }
+    for(const m of movs){
+      if(sn==='deudor') saldoAcum=round(saldoAcum+(m.debe||0)-(m.haber||0));
+      else saldoAcum=round(saldoAcum+(m.haber||0)-(m.debe||0));
+      rows+=`<div class="aux-row">
+        <span>${fmtDate(m.fecha)}</span>
+        <span>${h(m.polizaDesc||'')}</span>
+        <span>${m.debe?fmt2(m.debe):''}</span>
+        <span>${m.haber?fmt2(m.haber):''}</span>
+        <span class="fw7 ${saldoAcum>=0?'text-green':'text-red'}">${fmt2(Math.abs(saldoAcum))} ${saldoAcum<0?'(C)':'(D)'}</span>
+      </div>`;
+    }
+    const totD=round(movs.reduce((s,m)=>s+m.debe,0));
+    const totH=round(movs.reduce((s,m)=>s+m.haber,0));
+    rows+=`<div class="aux-row" style="font-weight:700;background:#f0f4ff;">
+      <span>TOTAL</span><span></span><span>${fmt2(totD)}</span><span>${fmt2(totH)}</span>
+      <span class="fw7 ${saldoAcum>=0?'text-green':'text-red'}">${fmt2(Math.abs(saldoAcum))}</span>
+    </div></div>`;
+    return rows;
+  };
 
   let html=`<div class="card">
   <div style="font-size:16px;font-weight:700;margin-bottom:12px;">Auxiliar Contable</div>
@@ -1805,38 +2047,44 @@ function renderAuxiliares(desde,hasta){
     <div class="form-group">
       <label>Cuenta</label>
       <select id="auxCta" onchange="renderReporte()">
+        <option value="__todas__" ${selCta==='__todas__'?'selected':''}>— Todas las cuentas —</option>
         ${sorted.map(c=>`<option value="${c}" ${c===selCta?'selected':''}>${c} — ${getNomCuenta(c)}</option>`).join('')}
       </select>
     </div>
   </div>`;
 
-  if(!selCta){ html+=`<div class="empty">Selecciona una cuenta</div></div>`; return html; }
+  if(!sorted.length){ html+=`<div class="empty">Sin movimientos en el período seleccionado</div></div>`; return html; }
 
-  const movs=getMovsCuenta(selCta,desde,hasta);
-  let saldoAcum=0;
-  const sn=getSaldoNormal(selCta);
-
-  html+=`<div style="font-size:13px;font-weight:600;margin-bottom:8px;">${selCta} — ${getNomCuenta(selCta)} <span class="chip">${sn}</span></div>`;
-  html+=`<div style="overflow-x:auto;"><div class="aux-row header"><span>Fecha</span><span>Descripción</span><span>Debe</span><span>Haber</span><span>Saldo</span></div>`;
-
-  if(!movs.length) html+=`<div class="empty">Sin movimientos en el período</div>`;
-  for(const m of movs){
-    if(sn==='deudor') saldoAcum=round(saldoAcum+(m.debe||0)-(m.haber||0));
-    else saldoAcum=round(saldoAcum+(m.haber||0)-(m.debe||0));
-    html+=`<div class="aux-row">
-      <span>${fmtDate(m.fecha)}</span>
-      <span>${h(m.polizaDesc||'')}</span>
-      <span>${m.debe?fmt2(m.debe):''}</span>
-      <span>${m.haber?fmt2(m.haber):''}</span>
-      <span class="fw7 ${saldoAcum>=0?'text-green':'text-red'}">${fmt2(Math.abs(saldoAcum))} ${saldoAcum<0?'(C)':'(D)'}</span>
-    </div>`;
+  if(selCta==='__todas__'){
+    // Accordion: all accounts grouped by type
+    const tipos=['ingreso','costo','gasto','activo','pasivo','capital'];
+    const tipoLab={ingreso:'Ingresos',costo:'Costo de ventas',gasto:'Gastos',activo:'Activos',pasivo:'Pasivos',capital:'Capital'};
+    for(const tipo of tipos){
+      const cuentasTipo=sorted.filter(c=>getTipoCuenta(c)===tipo);
+      if(!cuentasTipo.length) continue;
+      html+=`<div style="margin-bottom:16px;"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#888;padding:6px 0;border-bottom:1px solid #eee;margin-bottom:8px;">${tipoLab[tipo]||tipo}</div>`;
+      for(const c of cuentasTipo){
+        const movs=getMovsCuenta(c,desde,hasta);
+        const totD=round(movs.reduce((s,m)=>s+m.debe,0));
+        const totH=round(movs.reduce((s,m)=>s+m.haber,0));
+        const sn=getSaldoNormal(c);
+        const saldo=sn==='deudor'?round(totD-totH):round(totH-totD);
+        html+=`<details style="margin-bottom:4px;border:1px solid #eee;border-radius:8px;overflow:hidden;">
+          <summary style="display:flex;justify-content:space-between;align-items:center;padding:9px 14px;cursor:pointer;background:#fafafa;list-style:none;gap:12px;">
+            <span style="font-size:13px;font-weight:600;flex:1;">${c} — ${getNomCuenta(c)} <span class="chip" style="font-size:10px;">${sn}</span></span>
+            <span style="font-size:13px;font-weight:700;color:${saldo>=0?'#0D2A5E':'#e24b4a'};white-space:nowrap;">${fmt2(Math.abs(saldo))}</span>
+          </summary>
+          <div style="padding:0 14px 10px;">${auxRows(c)}</div>
+        </details>`;
+      }
+      html+=`</div>`;
+    }
+  } else {
+    html+=`<div style="font-size:13px;font-weight:600;margin-bottom:8px;">${selCta} — ${getNomCuenta(selCta)} <span class="chip">${getSaldoNormal(selCta)}</span></div>`;
+    html+=auxRows(selCta);
   }
-  const totD=round(movs.reduce((s,m)=>s+m.debe,0));
-  const totH=round(movs.reduce((s,m)=>s+m.haber,0));
-  html+=`<div class="aux-row" style="font-weight:700;background:#f0f4ff;">
-    <span>TOTAL</span><span></span><span>${fmt2(totD)}</span><span>${fmt2(totH)}</span>
-    <span class="fw7 ${saldoAcum>=0?'text-green':'text-red'}">${fmt2(Math.abs(saldoAcum))}</span>
-  </div></div></div>`;
+
+  html+=`</div>`;
   return html;
 }
 
