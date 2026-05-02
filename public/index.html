@@ -291,14 +291,75 @@ hr.sec{border:none;border-top:1px solid #e8e8e8;margin:16px 0;}
   </div>
 
   <div class="card" style="margin-top:14px;">
-    <div class="card-title">4. Importar Reporte Toteat (imagen o PDF)</div>
-    <input type="file" id="filePDF" onchange="handlePDFSelect(this.files[0])">
-    <div class="drop-zone" id="dropZonePDF" style="margin-top:12px;">
-      <div class="dz-icon" style="pointer-events:none;">📄</div>
-      <div class="dz-title" style="pointer-events:none;">O arrastra aquí tu archivo</div>
-      <div class="dz-sub" style="pointer-events:none;">JPG, PNG o PDF — Resumen de Ventas Toteat</div>
+    <div class="card-title">4. Registrar Resumen de Ventas Toteat</div>
+    <div class="alert-info" style="margin-bottom:14px;font-size:12px;">Abre Toteat → Reportes → Resumen de Ventas → Rango, y copia los datos aquí. Los campos están en el mismo orden que la pantalla de Toteat.</div>
+
+    <!-- Período -->
+    <div class="form-row" style="margin-bottom:10px;">
+      <div class="form-group"><label>Fecha inicio</label><input type="date" id="tc4Ini" oninput="tc4Balance()"></div>
+      <div class="form-group"><label>Fecha fin</label><input type="date" id="tc4Fin" oninput="tc4Balance()"></div>
+      <div style="display:flex;align-items:flex-end;gap:6px;">
+        <button class="btn btn-outline btn-sm" onclick="tc4SetMes()">Mes anterior</button>
+        <button class="btn btn-outline btn-sm" onclick="tc4SetActual()">Mes actual</button>
+      </div>
     </div>
-    <div id="pdfMsg" style="display:none;margin-top:10px;"></div>
+
+    <!-- Ventas y descuentos -->
+    <div class="form-row" style="margin-bottom:10px;">
+      <div class="form-group">
+        <label style="color:#c0392b;font-weight:700;">Total Venta Bruta <small style="color:#e24b4a;font-weight:400;">(post-descuento, c/IVA) ★</small></label>
+        <input type="number" id="tc4VB" step="0.01" placeholder="ej. 431081.50" oninput="tc4Balance()" style="border-color:#c0392b;">
+      </div>
+      <div class="form-group">
+        <label>Total Descuentos <small style="color:#888;">(valor positivo)</small></label>
+        <input type="number" id="tc4Desc" step="0.01" placeholder="ej. 20339.50" oninput="tc4Balance()">
+      </div>
+      <div class="form-group">
+        <label>Total Propinas</label>
+        <input type="number" id="tc4Prop" step="0.01" placeholder="ej. 29258.27">
+      </div>
+    </div>
+
+    <!-- Formas de pago -->
+    <div style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Formas de cobro → Terminal</div>
+    <div class="form-row" style="margin-bottom:10px;">
+      <div class="form-group"><label>Tarjeta Débito</label>
+        <div style="display:flex;gap:6px;">
+          <input type="number" id="tc4Deb" step="0.01" placeholder="0.00" style="flex:2;" oninput="tc4Balance()">
+          <select id="tc4MapDeb" style="flex:1;"><option value="mifel">MIFEL</option><option value="cash">CASH</option></select>
+        </div>
+      </div>
+      <div class="form-group"><label>Tarjeta Crédito</label>
+        <div style="display:flex;gap:6px;">
+          <input type="number" id="tc4Cred" step="0.01" placeholder="0.00" style="flex:2;" oninput="tc4Balance()">
+          <select id="tc4MapCred" style="flex:1;"><option value="cash">CASH</option><option value="mifel">MIFEL</option></select>
+        </div>
+      </div>
+      <div class="form-group"><label>Efectivo</label>
+        <input type="number" id="tc4Ef" step="0.01" placeholder="0.00" oninput="tc4Balance()">
+      </div>
+    </div>
+
+    <!-- Balance en vivo -->
+    <div id="tc4BalanceBox" style="margin-bottom:12px;"></div>
+
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+      <button class="btn btn-primary" onclick="tc4Guardar()">Registrar corte</button>
+      <span id="tc4Msg" style="font-size:13px;"></span>
+    </div>
+
+    <!-- PDF como opción secundaria -->
+    <details style="margin-top:16px;">
+      <summary style="font-size:12px;color:#888;cursor:pointer;">¿Tienes PDF de Toteat? Súbelo aquí (extrae los números automáticamente)</summary>
+      <div style="margin-top:10px;">
+        <input type="file" id="filePDF" onchange="handlePDFSelect(this.files[0])" accept=".pdf,image/*">
+        <div class="drop-zone" id="dropZonePDF" style="margin-top:8px;">
+          <div class="dz-icon" style="pointer-events:none;">📄</div>
+          <div class="dz-sub" style="pointer-events:none;">PDF — Resumen de Ventas Toteat (extracción automática)</div>
+        </div>
+        <div id="pdfMsg" style="display:none;margin-top:10px;"></div>
+      </div>
+    </details>
   </div>
 
   <div class="card" style="margin-top:14px;border-top:3px solid #34a853;">
@@ -1389,7 +1450,7 @@ function goTab(tab){
 }
 function renderCurrent(){
   if(_tabActual==='inicio') renderInicio();
-  else if(_tabActual==='carga'){ pcInitForm(); renderHistorialCortes(); }
+  else if(_tabActual==='carga'){ pcInitForm(); tc4Init(); renderHistorialCortes(); }
   else if(_tabActual==='concilia') renderConcilia();
   else if(_tabActual==='polizas') renderPolizas();
   else if(_tabActual==='facturas'){ initFactFechas(); renderFacturas(); }
@@ -2405,6 +2466,81 @@ async function handlePDFSelect(file){
     msg.style.display='block'; msg.className='alert-warn'; msg.textContent='Error: '+e.message;
   }
 }
+
+// ═══════════════════════════════════════════════════════════
+//  CARD 4 — Registrar Corte Toteat (directo, sin imagen)
+// ═══════════════════════════════════════════════════════════
+function tc4SetMes(){
+  const d=new Date(); const y=d.getMonth()===0?d.getFullYear()-1:d.getFullYear();
+  const m=d.getMonth()===0?12:d.getMonth();
+  const ini=`${y}-${String(m).padStart(2,'0')}-01`;
+  const last=new Date(y,m,0);
+  const fin=`${last.getFullYear()}-${String(last.getMonth()+1).padStart(2,'0')}-${String(last.getDate()).padStart(2,'0')}`;
+  document.getElementById('tc4Ini').value=ini; document.getElementById('tc4Fin').value=fin; tc4Balance();
+}
+function tc4SetActual(){ document.getElementById('tc4Ini').value=startOfMonth(); document.getElementById('tc4Fin').value=endOfMonth(); tc4Balance(); }
+
+function tc4Balance(){
+  const g=id=>parseFloat(document.getElementById(id)?.value||0)||0;
+  const vb=g('tc4VB'), deb=g('tc4Deb'), cred=g('tc4Cred'), ef=g('tc4Ef');
+  const dist=round(deb+cred+ef), pend=round(vb-dist);
+  const el=document.getElementById('tc4BalanceBox'); if(!el) return;
+  if(vb===0){ el.innerHTML=''; return; }
+  const ok=Math.abs(pend)<=1;
+  const color=ok?'#2d7a2d':Math.abs(pend)>1000?'#e24b4a':'#b06800';
+  const bg=ok?'#f0fff4':'#fff8e1', border=ok?'#a8e6c0':'#f0cc78';
+  el.innerHTML=`<div style="display:flex;gap:24px;padding:10px 14px;border-radius:8px;background:${bg};border:1px solid ${border};font-size:13px;">
+    <div><span style="color:#888;font-size:11px;display:block;">VENTA BRUTA</span><strong>${fmt(vb)}</strong></div>
+    <div><span style="color:#888;font-size:11px;display:block;">DISTRIBUIDO</span><strong>${fmt(dist)}</strong></div>
+    <div><span style="color:#888;font-size:11px;display:block;">POR DISTRIBUIR</span><strong style="color:${color};">${ok?'✓ Cuadra':fmt(pend)}</strong></div>
+  </div>`;
+}
+
+function tc4Guardar(){
+  const g=id=>parseFloat(document.getElementById(id)?.value||0)||0;
+  const fi=document.getElementById('tc4Ini').value, ff=document.getElementById('tc4Fin').value;
+  const msg=document.getElementById('tc4Msg');
+  if(!fi||!ff){ msg.textContent='Completa las fechas'; msg.style.color='#e24b4a'; return; }
+  const vb=round(g('tc4VB'));
+  if(vb===0){ msg.textContent='⚠️ Venta Bruta es $0 — ingresa el monto'; msg.style.color='#e24b4a'; return; }
+  const traslape=cortesTraslape(fi,ff);
+  if(traslape.length){
+    const lista=traslape.map(c=>`• ${c.esPeriodo?`${fmtDate(c.periodoInicio||c.fecha)} – ${fmtDate(c.fecha)}`:fmtDate(c.fecha)} (${fmt(c.ventasBrutas)})`).join('\n');
+    if(!confirm(`Ya existen cortes que se traslapan:\n\n${lista}\n\n¿Guardar de todas formas?`)) return;
+  }
+  const desc=round(g('tc4Desc')), prop=round(g('tc4Prop'));
+  const deb=g('tc4Deb'), cred=g('tc4Cred'), ef=round(g('tc4Ef'));
+  const mapDeb=document.getElementById('tc4MapDeb').value, mapCred=document.getElementById('tc4MapCred').value;
+  let mifel=0, cash=0;
+  if(mapDeb==='mifel') mifel+=deb; else cash+=deb;
+  if(mapCred==='mifel') mifel+=cred; else cash+=cred;
+  mifel=round(mifel); cash=round(cash);
+
+  const corte={id:uid(),fecha:ff,periodoInicio:fi,periodoFin:ff,esPeriodo:fi!==ff,
+    ventasBrutas:vb,mifel,cash,efectivo:ef,propinas:prop,descuentos:desc,
+    cancelaciones:0,obs:'Toteat manual',origen:'imagen',ts:Date.now()};
+  S.cortes.push(corte);
+  const iva=S.cfg.preciosConIVA?round(vb/1.16*0.16):0;
+  const neto=round(vb-iva);
+  S.polizas.push({id:uid(),fecha:ff,tipo:'ingreso',
+    desc:`Toteat ${fmtDate(fi)}${fi!==ff?' – '+fmtDate(ff):''}`,
+    origen:'corte',refCorte:corte.id,
+    partidas:[
+      ...(mifel>0?[{cta:'1111',nom:'Terminal MIFEL',debe:mifel,haber:0}]:[]),
+      ...(cash>0?[{cta:'1112',nom:'Terminal CASH',debe:cash,haber:0}]:[]),
+      ...(ef>0?[{cta:'1101',nom:'Caja',debe:ef,haber:0}]:[]),
+      ...(desc>0?[{cta:'4010',nom:'Descuentos y Cortesías',debe:desc,haber:0}]:[]),
+      {cta:'4001',nom:'Ventas',debe:0,haber:neto},
+      ...(iva>0?[{cta:'2111',nom:'IVA Trasladado',debe:0,haber:iva}]:[]),
+    ],ts:Date.now()});
+  save();
+  // reset
+  ['tc4VB','tc4Desc','tc4Prop','tc4Deb','tc4Cred','tc4Ef'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  tc4Balance(); renderHistorialCortes();
+  msg.textContent=`✓ Corte registrado — ${fmtDate(fi)}${fi!==ff?' – '+fmtDate(ff):''} · ${fmt(vb)}`; msg.style.color='#2d7a2d';
+}
+
+function tc4Init(){ tc4SetMes(); }
 
 function updateImgBalance(){
   const g=id=>parseFloat(document.getElementById(id)?.value||0)||0;
