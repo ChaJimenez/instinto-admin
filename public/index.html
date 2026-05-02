@@ -489,8 +489,8 @@ hr.sec{border:none;border-top:1px solid #e8e8e8;margin:16px 0;}
     <button class="btn btn-outline btn-sm" onclick="openModalFacturaManual()">+ Manual</button>
   </div>
   <div class="filtros">
-    <input type="date" id="factDesde" onchange="renderFacturas()">
-    <input type="date" id="factHasta" onchange="renderFacturas()">
+    <input type="date" id="factDesde" onchange="renderFacturas()" oninput="renderFacturas()">
+    <input type="date" id="factHasta" onchange="renderFacturas()" oninput="renderFacturas()">
     <select id="factEstado" onchange="renderFacturas()">
       <option value="">Todos</option>
       <option value="pendiente">Pendiente</option>
@@ -498,6 +498,9 @@ hr.sec{border:none;border-top:1px solid #e8e8e8;margin:16px 0;}
       <option value="cancelada">Cancelada</option>
     </select>
     <input type="text" id="factBusca" placeholder="RFC o nombre..." oninput="renderFacturas()">
+    <button class="btn btn-outline btn-sm" onclick="setFactMesActual()">Mes actual</button>
+    <button class="btn btn-outline btn-sm" onclick="setFactMesAnterior()">Mes anterior</button>
+    <button class="btn btn-outline btn-sm" onclick="renderFacturas()">Actualizar</button>
   </div>
   <div id="facturas-content"></div>
 </div>
@@ -1380,7 +1383,7 @@ function renderCurrent(){
   else if(_tabActual==='carga') pcInitForm();
   else if(_tabActual==='concilia') renderConcilia();
   else if(_tabActual==='polizas') renderPolizas();
-  else if(_tabActual==='facturas') renderFacturas();
+  else if(_tabActual==='facturas'){ initFactFechas(); renderFacturas(); }
   else if(_tabActual==='bancos') renderBancos();
   else if(_tabActual==='reportes') renderReporte();
   else if(_tabActual==='catalogo') renderCatalogo();
@@ -1484,6 +1487,7 @@ function renderPolizas(){
 // ═══════════════════════════════════════════════════════════
 //  RENDER FACTURAS
 // ═══════════════════════════════════════════════════════════
+function initFactFechas(){ const d=document.getElementById('factDesde'); if(!d.value){ d.value=startOfMonth(); document.getElementById('factHasta').value=endOfMonth(); } }
 function switchFactTab(t){
   _factTab=t;
   const tabs=['recibidas','emitidas','porpagar'];
@@ -1594,8 +1598,9 @@ function renderFacturas(){
   const estado=document.getElementById('factEstado').value;
   const busca=(document.getElementById('factBusca').value||'').toLowerCase();
 
+  const tipoFiltro=_factTab==='recibidas'?'recibida':'emitida';
   const list=S.facturas.filter(f=>{
-    if(f.tipo!==_factTab) return false;
+    if(f.tipo!==tipoFiltro) return false;
     if(desde&&f.fecha<desde) return false;
     if(hasta&&f.fecha>hasta) return false;
     if(estado&&f.estado!==estado) return false;
@@ -1857,6 +1862,8 @@ function drillToAux(cta){
 //  RENDER REPORTES
 // ═══════════════════════════════════════════════════════════
 function switchRptTab(t){ _rptTab=t; document.querySelectorAll('#sc-reportes .sub-tab').forEach((el,i)=>el.classList.toggle('active',['er','cf','bal','aux'][i]===t)); renderReporte(); }
+function setFactMesActual(){ document.getElementById('factDesde').value=startOfMonth(); document.getElementById('factHasta').value=endOfMonth(); renderFacturas(); }
+function setFactMesAnterior(){ const d=new Date(); const y=d.getMonth()===0?d.getFullYear()-1:d.getFullYear(); const m=d.getMonth()===0?12:d.getMonth(); const first=`${y}-${String(m).padStart(2,'0')}-01`; const last=new Date(y,m,0); const lastStr=`${last.getFullYear()}-${String(last.getMonth()+1).padStart(2,'0')}-${String(last.getDate()).padStart(2,'0')}`; document.getElementById('factDesde').value=first; document.getElementById('factHasta').value=lastStr; renderFacturas(); }
 function setMesActual(){ document.getElementById('rptDesde').value=startOfMonth(); document.getElementById('rptHasta').value=endOfMonth(); renderReporte(); }
 function setMesAnterior(){ const d=new Date(); const y=d.getMonth()===0?d.getFullYear()-1:d.getFullYear(); const m=d.getMonth()===0?12:d.getMonth(); const first=`${y}-${String(m).padStart(2,'0')}-01`; const last=new Date(y,m,0); const lastStr=`${last.getFullYear()}-${String(last.getMonth()+1).padStart(2,'0')}-${String(last.getDate()).padStart(2,'0')}`; document.getElementById('rptDesde').value=first; document.getElementById('rptHasta').value=lastStr; renderReporte(); }
 function setEjercicio(){ const y=S.cfg.ejercicio||new Date().getFullYear(); document.getElementById('rptDesde').value=`${y}-01-01`; document.getElementById('rptHasta').value=`${y}-12-31`; renderReporte(); }
