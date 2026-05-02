@@ -431,6 +431,15 @@ hr.sec{border:none;border-top:1px solid #e8e8e8;margin:16px 0;}
     </div>
     <div id="pcList"></div>
   </div>
+
+  <!-- ══ Historial de Cortes ══ -->
+  <div class="card" style="margin-top:14px;border-top:3px solid #888;">
+    <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
+      Historial de Cortes Toteat
+      <button class="btn btn-outline btn-sm" onclick="renderHistorialCortes()">↻ Refrescar</button>
+    </div>
+    <div id="historialCortesList"><div class="empty" style="padding:20px;">Cargando...</div></div>
+  </div>
 </div>
 
 <!-- ══════════ CONCILIACIÓN ══════════ -->
@@ -1380,7 +1389,7 @@ function goTab(tab){
 }
 function renderCurrent(){
   if(_tabActual==='inicio') renderInicio();
-  else if(_tabActual==='carga') pcInitForm();
+  else if(_tabActual==='carga'){ pcInitForm(); renderHistorialCortes(); }
   else if(_tabActual==='concilia') renderConcilia();
   else if(_tabActual==='polizas') renderPolizas();
   else if(_tabActual==='facturas'){ initFactFechas(); renderFacturas(); }
@@ -1728,6 +1737,52 @@ function desconciliarMov(id){
 
 
 // ═══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
+//  GESTIÓN CORTES
+// ═══════════════════════════════════════════════════════════
+function cortesTraslape(fi, ff){
+  return S.cortes.filter(c=>{
+    const ini=c.periodoInicio||c.fecha;
+    const fin=c.periodoFin||c.fecha;
+    return ini<=ff && fin>=fi;
+  });
+}
+
+function eliminarCorte(id){
+  const c=S.cortes.find(c=>c.id===id); if(!c) return;
+  const etiqueta=c.esPeriodo?`${fmtDate(c.periodoInicio)} – ${fmtDate(c.fecha)}`:fmtDate(c.fecha);
+  if(!confirm(`¿Eliminar corte ${etiqueta}?\nEsto también eliminará su póliza asociada.`)) return;
+  S.cortes=S.cortes.filter(x=>x.id!==id);
+  S.polizas=S.polizas.filter(p=>p.refCorte!==id);
+  save(); renderHistorialCortes(); renderCurrent();
+}
+
+function renderHistorialCortes(){
+  const el=document.getElementById('historialCortesList'); if(!el) return;
+  if(!S.cortes.length){ el.innerHTML='<div class="empty" style="padding:20px;">Sin cortes registrados</div>'; return; }
+  const sorted=[...S.cortes].sort((a,b)=>b.fecha.localeCompare(a.fecha));
+  let html=`<div class="tbl-wrap"><table style="font-size:12px;"><thead><tr>
+    <th>Período</th><th>Origen</th><th class="td-num">Ventas</th><th class="td-num">MIFEL</th>
+    <th class="td-num">CASH</th><th class="td-num">Efectivo</th><th class="td-num">Propinas</th><th></th>
+  </tr></thead><tbody>`;
+  for(const c of sorted){
+    const label=c.esPeriodo?`${fmtDate(c.periodoInicio||c.fecha)} – ${fmtDate(c.fecha)}`:fmtDate(c.fecha);
+    const orig=c.origen||'manual';
+    html+=`<tr>
+      <td style="white-space:nowrap;">${label}</td>
+      <td><span class="badge badge-${orig==='pdf'?'cfdi':orig==='imagen'?'csv':orig==='pos'?'ing':'dia'}">${orig}</span></td>
+      <td class="td-num">${fmt(c.ventasBrutas)}</td>
+      <td class="td-num">${fmt(c.mifel||0)}</td>
+      <td class="td-num">${fmt(c.cash||0)}</td>
+      <td class="td-num">${fmt(c.efectivo||0)}</td>
+      <td class="td-num">${fmt(c.propinas||0)}</td>
+      <td><button class="btn-ghost text-red" onclick="eliminarCorte('${c.id}')" title="Eliminar">✕</button></td>
+    </tr>`;
+  }
+  html+=`</tbody></table></div>`;
+  el.innerHTML=html;
+}
+
 //  PAGOS MANGOBICHE (sin factura)
 // ═══════════════════════════════════════════════════════════
 let _pcImg = null;
@@ -2391,6 +2446,11 @@ function confirmarImageImport(){
   const fi=document.getElementById('imgFechaInicio').value;
   const ff=document.getElementById('imgFechaFin').value;
   if(!fi||!ff){alert('Completa las fechas');return;}
+  const traslape=cortesTraslape(fi,ff);
+  if(traslape.length){
+    const lista=traslape.map(c=>`• ${c.esPeriodo?`${fmtDate(c.periodoInicio||c.fecha)} – ${fmtDate(c.fecha)}`:fmtDate(c.fecha)} (${fmt(c.ventasBrutas)})`).join('\n');
+    if(!confirm(`Ya existen cortes que se traslapan con este período:\n\n${lista}\n\n¿Guardar de todas formas? (Si subes el mes completo borra primero los parciales en "Historial de Cortes")`)) return;
+  }
   const mapDeb=document.getElementById('imgMapDeb').value;
   const mapCred=document.getElementById('imgMapCred').value;
   const debito=n('imgDebito'), credito=n('imgCredito');
@@ -2468,6 +2528,11 @@ function showPDFPreview(d){
 function confirmarPDFImport(){
   if(!_pdfData) return;
   const d=_pdfData;
+  const traslape=cortesTraslape(d.fechaInicio,d.fechaFin);
+  if(traslape.length){
+    const lista=traslape.map(c=>`• ${c.esPeriodo?`${fmtDate(c.periodoInicio||c.fecha)} – ${fmtDate(c.fecha)}`:fmtDate(c.fecha)} (${fmt(c.ventasBrutas)})`).join('\n');
+    if(!confirm(`Ya existen cortes que se traslapan con este período:\n\n${lista}\n\n¿Guardar de todas formas? (Si subes el mes completo borra primero los parciales en "Historial de Cortes")`)) return;
+  }
   const mapDeb=document.getElementById('pdfMapDebito').value;
   const mapCred=document.getElementById('pdfMapCredito').value;
   const ef=parseFloat(document.getElementById('pdfEfectivo').value||0)||0;
