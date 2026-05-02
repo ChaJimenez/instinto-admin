@@ -466,10 +466,12 @@ hr.sec{border:none;border-top:1px solid #e8e8e8;margin:16px 0;}
     <button class="sub-tab" onclick="switchRptTab('aux')">Auxiliares</button>
   </div>
   <div class="filtros" style="margin-bottom:18px;">
-    <input type="date" id="rptDesde" onchange="renderReporte()">
-    <input type="date" id="rptHasta" onchange="renderReporte()">
+    <input type="date" id="rptDesde" onchange="renderReporte()" oninput="renderReporte()">
+    <input type="date" id="rptHasta" onchange="renderReporte()" oninput="renderReporte()">
     <button class="btn btn-outline btn-sm" onclick="setMesActual()">Mes actual</button>
+    <button class="btn btn-outline btn-sm" onclick="setMesAnterior()">Mes anterior</button>
     <button class="btn btn-outline btn-sm" onclick="setEjercicio()">Ejercicio</button>
+    <button class="btn btn-outline btn-sm" onclick="renderReporte()">Actualizar</button>
     <button class="btn btn-naranja btn-sm" onclick="exportarReporte()">↓ Excel</button>
   </div>
   <div id="reportes-content"></div>
@@ -1641,6 +1643,7 @@ function desconciliarMov(id){
 // ═══════════════════════════════════════════════════════════
 function switchRptTab(t){ _rptTab=t; document.querySelectorAll('#sc-reportes .sub-tab').forEach((el,i)=>el.classList.toggle('active',['er','cf','bal','aux'][i]===t)); renderReporte(); }
 function setMesActual(){ document.getElementById('rptDesde').value=startOfMonth(); document.getElementById('rptHasta').value=endOfMonth(); renderReporte(); }
+function setMesAnterior(){ const d=new Date(); const y=d.getMonth()===0?d.getFullYear()-1:d.getFullYear(); const m=d.getMonth()===0?12:d.getMonth(); const first=`${y}-${String(m).padStart(2,'0')}-01`; const last=new Date(y,m,0); const lastStr=`${last.getFullYear()}-${String(last.getMonth()+1).padStart(2,'0')}-${String(last.getDate()).padStart(2,'0')}`; document.getElementById('rptDesde').value=first; document.getElementById('rptHasta').value=lastStr; renderReporte(); }
 function setEjercicio(){ const y=S.cfg.ejercicio||new Date().getFullYear(); document.getElementById('rptDesde').value=`${y}-01-01`; document.getElementById('rptHasta').value=`${y}-12-31`; renderReporte(); }
 
 function renderReporte(){
