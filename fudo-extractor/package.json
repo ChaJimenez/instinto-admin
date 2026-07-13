@@ -1,0 +1,22 @@
+{
+  "name": "instinto-fudo-extractor",
+  "version": "1.0.0",
+  "description": "Extractor de datos de ventas desde Fudo POS para análisis de restaurante",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "daily": "node src/schedulers/daily-sync.js",
+    "weekly": "node src/schedulers/weekly-report.js",
+    "test": "node src/test-fudo.js"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "dotenv": "^16.3.1",
+    "node-cron": "^3.0.2",
+    "google-auth-library": "^9.0.0",
+    "googleapis": "^118.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
