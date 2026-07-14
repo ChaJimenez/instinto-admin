@@ -2,51 +2,28 @@ const axios = require('axios');
 const crypto = require('crypto');
 
 class FudoClient {
-  constructor(apiKey, apiSecret, baseUrl = 'https://api.fudoapp.com') {
-    this.apiKey = apiKey;
+  constructor(apiSecret, baseUrl = 'https://api.fu.do/v1alpha1') {
     this.apiSecret = apiSecret;
     this.baseUrl = baseUrl;
     this.client = axios.create({
       baseURL: baseUrl,
       timeout: 10000,
+      headers: {
+        'Authorization': `Bearer ${apiSecret}`,
+        'Content-Type': 'application/json',
+      },
     });
   }
 
   /**
-   * Genera signature para autenticación OAuth-like
-   * Basado en documentación de Fudo
-   */
-  generateSignature(method, endpoint, timestamp, nonce) {
-    const baseString = `${method.toUpperCase()}&${encodeURIComponent(endpoint)}&`;
-    const signatureKey = `${this.apiSecret}&`;
-
-    const hmac = crypto
-      .createHmac('sha256', signatureKey)
-      .update(baseString)
-      .digest('base64');
-
-    return hmac;
-  }
-
-  /**
    * Realiza request autenticado a Fudo
+   * Autenticación: Bearer token en header Authorization
    */
   async request(method, endpoint, data = null) {
     try {
-      const timestamp = Math.floor(Date.now() / 1000);
-      const nonce = Math.random().toString(36).substring(2, 15);
-
-      const headers = {
-        'Authorization': `Bearer ${this.apiKey}`,
-        'Content-Type': 'application/json',
-        'X-Fudo-Timestamp': timestamp,
-        'X-Fudo-Nonce': nonce,
-      };
-
       const config = {
         method,
         url: endpoint,
-        headers,
       };
 
       if (data && (method === 'POST' || method === 'PUT')) {
@@ -68,6 +45,7 @@ class FudoClient {
 
   /**
    * Obtiene ventas del día o rango de fechas
+   * Endpoint: GET /sales
    * @param {Date} startDate - Fecha inicio (default: hoy)
    * @param {Date} endDate - Fecha fin (default: hoy)
    * @returns {Array} Array de ventas
@@ -79,7 +57,7 @@ class FudoClient {
     try {
       const sales = await this.request(
         'GET',
-        `/api/sales?start_date=${start}&end_date=${end}`
+        `/sales?start_date=${start}&end_date=${end}`
       );
       return sales;
     } catch (error) {

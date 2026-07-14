@@ -10,8 +10,8 @@ const path = require('path');
  */
 
 const fudo = new FudoClient(
-  process.env.FUDO_API_KEY,
-  process.env.FUDO_API_SECRET
+  process.env.FUDO_API_SECRET,
+  process.env.FUDO_BASE_URL || 'https://api.fu.do/v1alpha1'
 );
 
 const dataDir = process.env.DATA_OUTPUT_DIR || './data';

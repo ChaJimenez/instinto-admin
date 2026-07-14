@@ -7,9 +7,8 @@ async function main() {
   console.log('🚀 Iniciando extractor de datos Fudo...\n');
 
   const fudo = new FudoClient(
-    process.env.FUDO_API_KEY,
     process.env.FUDO_API_SECRET,
-    process.env.FUDO_BASE_URL
+    process.env.FUDO_BASE_URL || 'https://api.fu.do/v1alpha1'
   );
 
   // Crear directorio de datos si no existe
