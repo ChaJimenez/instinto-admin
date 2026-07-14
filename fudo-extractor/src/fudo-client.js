@@ -1,29 +1,73 @@
 const axios = require('axios');
-const crypto = require('crypto');
 
 class FudoClient {
-  constructor(apiSecret, baseUrl = 'https://api.fu.do/v1alpha1') {
+  constructor(apiKey, apiSecret, baseUrl = 'https://api.fu.do/v1alpha1') {
+    this.apiKey = apiKey;
     this.apiSecret = apiSecret;
     this.baseUrl = baseUrl;
+    this.token = null;
+    this.tokenExpiresAt = 0;
     this.client = axios.create({
       baseURL: baseUrl,
-      timeout: 10000,
-      headers: {
-        'Authorization': `Bearer ${apiSecret}`,
-        'Content-Type': 'application/json',
-      },
+      timeout: 15000,
+      headers: { 'Content-Type': 'application/json' },
     });
   }
 
   /**
-   * Realiza request autenticado a Fudo
-   * Autenticación: Bearer token en header Authorization
+   * Autentica con Fudo intercambiando apiKey + apiSecret por un token.
+   * Fudo NO acepta el apiSecret directamente como Bearer token:
+   * primero hay que hacer POST /auth y usar el token que devuelve.
+   * El token vence a las 24h; lo renovamos cuando falta poco.
+   */
+  async authenticate() {
+    const now = Date.now();
+    // Reusar token si aún es válido (con margen de 5 min)
+    if (this.token && now < this.tokenExpiresAt - 5 * 60 * 1000) {
+      return this.token;
+    }
+
+    try {
+      const response = await this.client.post('/auth', {
+        apiKey: this.apiKey,
+        apiSecret: this.apiSecret,
+      });
+
+      // Fudo puede devolver { token } o { data: { token } }
+      const token = response.data?.token || response.data?.data?.token;
+      if (!token) {
+        throw new Error(
+          `Respuesta de /auth sin token: ${JSON.stringify(response.data).substring(0, 200)}`
+        );
+      }
+
+      this.token = token;
+      this.tokenExpiresAt = now + 24 * 60 * 60 * 1000; // 24h
+      return token;
+    } catch (error) {
+      const status = error.response?.status;
+      const body = error.response?.data;
+      let hint = '';
+      if (status === 401) hint = ' → apiKey o apiSecret inválidos';
+      if (status === 404) hint = ' → endpoint /auth no existe (revisar ruta de login)';
+      throw new Error(
+        `Fallo de autenticación [POST /auth] ${status || ''}${hint}` +
+        (body ? ` | ${JSON.stringify(body).substring(0, 200)}` : ` | ${error.message}`)
+      );
+    }
+  }
+
+  /**
+   * Realiza request autenticado a Fudo.
+   * Garantiza que hay un token válido antes de llamar.
    */
   async request(method, endpoint, data = null) {
+    const token = await this.authenticate();
     try {
       const config = {
         method,
         url: endpoint,
+        headers: { 'Authorization': `Bearer ${token}` },
       };
 
       if (data && (method === 'POST' || method === 'PUT')) {
@@ -33,9 +77,21 @@ class FudoClient {
       const response = await this.client(config);
       return response.data;
     } catch (error) {
+      // Si el token expiró (401), reintentar una vez con token nuevo
+      if (error.response?.status === 401) {
+        this.token = null;
+        const freshToken = await this.authenticate();
+        const retry = await this.client({
+          method,
+          url: endpoint,
+          headers: { 'Authorization': `Bearer ${freshToken}` },
+          ...(data && (method === 'POST' || method === 'PUT') ? { data } : {}),
+        });
+        return retry.data;
+      }
       console.error(`Fudo API Error [${method} ${endpoint}]:`, error.message);
       if (error.response?.data) {
-        console.error('Response:', error.response.data);
+        console.error('Response:', JSON.stringify(error.response.data).substring(0, 300));
       }
       throw error;
     }
