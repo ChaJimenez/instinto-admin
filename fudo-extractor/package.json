@@ -8,6 +8,7 @@
     "dashboard": "node server.js",
     "dev": "nodemon server.js",
     "daily": "node src/schedulers/daily-sync.js",
+    "daily:now": "node src/run-daily-sync-now.js",
     "weekly": "node src/schedulers/weekly-report.js",
     "test": "node src/test-fudo.js"
   },
