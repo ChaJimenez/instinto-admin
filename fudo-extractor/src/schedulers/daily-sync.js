@@ -59,9 +59,14 @@ async function syncDailyData() {
 
     await basecamp.updateDailyMessage(metrics);
 
-    const ingredients = await fudo.getIngredients();
-    const lowStockResult = FudoClient.calculateLowStock(ingredients);
-    await basecamp.updateInventoryMessage(lowStockResult, fudo.formatDate(today));
+    // Se activa manualmente cuando Cha termine el conteo físico de inventario
+    // en Fudo (Ingredientes > Conteo de inventario) — antes de eso, el stock
+    // negativo generalizado hace que este reporte no sea confiable todavía.
+    if (process.env.INVENTORY_ALERTS_ENABLED === 'true') {
+      const ingredients = await fudo.getIngredients();
+      const lowStockResult = FudoClient.calculateLowStock(ingredients);
+      await basecamp.updateInventoryMessage(lowStockResult, fudo.formatDate(today));
+    }
   } catch (error) {
     console.error('❌ Error en sincronización diaria:', error.message);
   }
