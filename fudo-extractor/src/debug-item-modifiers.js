@@ -76,8 +76,61 @@ async function main() {
     }
   }
 
-  console.log('\n\n=== Paso 3: inspeccionar un item de venta crudo con el include de modificadores que resulte válido ===');
-  console.log('(Editar MODIFIER_INCLUDE abajo con lo que haya salido del Paso 1 antes de correr esta parte de nuevo si hace falta.)');
+  console.log('\n\n=== Paso 3: probar items.subitems.product (hipótesis: toppings = subitems) ===');
+  console.log('El regex de /sales no tiene nada con "modif", pero sí existe `items.subitems` y');
+  console.log('`items.subitems.product` — cada topping (Aguacate, Extra carne, etc.) tiene su propio');
+  console.log('precio en el catálogo como si fuera un producto, así que es el candidato más fuerte.\n');
+
+  const target = new Date('2026-09-09T12:00:00-06:00');
+  const localStart = fudo.formatDate(target);
+  const queryStart = fudo.formatDate(new Date(target.getTime() - 24 * 60 * 60 * 1000));
+  const queryEnd = fudo.formatDate(new Date(target.getTime() + 48 * 60 * 60 * 1000));
+  const filter = encodeURIComponent(`and(gte.${queryStart},lte.${queryEnd})`);
+  const path = `/sales?filter[createdAt]=${filter}&include=items.product,items.subitems.product,waiter&page[size]=250`;
+
+  try {
+    const response = await fudo.request('GET', path);
+    const sales = response?.data || [];
+    const included = response?.included || [];
+
+    console.log(`OK — ${sales.length} venta(s) traídas, ${included.length} recurso(s) en included.`);
+    console.log('Tipos en included:', [...new Set(included.map((i) => i.type))]);
+
+    // Buscar el primer item de venta que SÍ tenga subitems, para no imprimir
+    // uno vacío al azar.
+    let foundExample = false;
+    for (const sale of sales) {
+      const itemRefs = sale.relationships?.items?.data || [];
+      for (const itemRef of itemRefs) {
+        const item = included.find((i) => i.type === itemRef.type && i.id === itemRef.id);
+        const subitemRefs = item?.relationships?.subitems?.data || [];
+        if (subitemRefs.length > 0) {
+          foundExample = true;
+          console.log(`\n--- venta=${sale.id} item con subitems (item id=${item.id}) ---`);
+          console.log('item attributes:', JSON.stringify(item.attributes, null, 2));
+          console.log('item relationships keys:', Object.keys(item.relationships || {}));
+          subitemRefs.forEach((subRef) => {
+            const subitem = included.find((i) => i.type === subRef.type && i.id === subRef.id);
+            console.log(`\n  subitem (type=${subRef.type}, id=${subRef.id}):`, JSON.stringify(subitem, null, 2));
+          });
+        }
+      }
+      if (foundExample) break;
+    }
+
+    if (!foundExample) {
+      console.log('\nNingún item del día tuvo subitems. Puede que ese día no se haya vendido nada con topping,');
+      console.log('o que los modificadores no viajen como subitems. Mostrando un item cualquiera para comparar:');
+      const anySale = sales.find((s) => (s.relationships?.items?.data || []).length > 0);
+      const anyItemRef = anySale?.relationships?.items?.data?.[0];
+      const anyItem = included.find((i) => i.type === anyItemRef?.type && i.id === anyItemRef?.id);
+      console.log(JSON.stringify(anyItem, null, 2));
+    }
+  } catch (error) {
+    const status = error.response?.status;
+    console.log(`✗ Falló (${status || error.message})`);
+    if (error.response?.data) console.log('detalle:', JSON.stringify(error.response.data));
+  }
 
   console.log('\n\nListo. Pega toda esta salida en el chat.');
 }
