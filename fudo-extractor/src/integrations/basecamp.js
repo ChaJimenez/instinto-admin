@@ -48,6 +48,8 @@ class BasecampIntegration {
       'messages', 'show', this.dailyMessageId,
       '--message-board', this.messageBoardId,
     ]);
+    const subject = current.data?.subject || current.subject || '(sin asunto)';
+    console.log(`   → Actualizando mensaje ${this.dailyMessageId} en bucket ${this.bucketId}: "${subject}"`);
     const previousContent = current.data?.content || current.content || '';
 
     const todayBlock = this.formatDailyBlockHTML(metrics);
