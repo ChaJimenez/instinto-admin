@@ -286,12 +286,18 @@ class FudoClient {
   /**
    * Métricas por mesero, calculadas del lado del cliente a partir de ventas ya traídas.
    * No existe endpoint /api/analytics/waiters en Fudo — se deriva de getSales().
+   *
+   * Solo incluye ventas con mesero real asignado — las de mostrador/domicilio/
+   * Uber no tienen mesero por diseño (no es un dato faltante) y no tiene
+   * sentido rankearlas junto a personas. Esas se reportan aparte con
+   * calculateChannelMetrics().
    */
   static calculateWaiterMetrics(sales) {
     const map = {};
 
     sales.forEach((sale) => {
-      const key = sale.waiterId || 'unknown';
+      if (!sale.waiterId) return;
+      const key = sale.waiterId;
       if (!map[key]) {
         map[key] = { name: sale.waiterName, tickets: 0, totalSales: 0, tips: 0 };
       }
@@ -303,6 +309,34 @@ class FudoClient {
     return Object.values(map)
       .map((w) => ({ ...w, avgTicket: w.tickets > 0 ? (w.totalSales / w.tickets) : 0 }))
       .sort((a, b) => b.totalSales - a.totalSales);
+  }
+
+  /**
+   * Ventas SIN mesero asignado, agrupadas por canal (mostrador, domicilio,
+   * comedor sin mesero cargado). Usa `saleType`, confirmado con datos reales:
+   * EAT-IN, TAKEAWAY, DELIVERY. Complementa a calculateWaiterMetrics() en vez
+   * de mezclarse con ella — comparar "Sin asignar" contra un mesero real no
+   * tiene sentido, es un canal de venta, no una persona.
+   */
+  static calculateChannelMetrics(sales) {
+    const labels = {
+      'EAT-IN': 'Comedor (sin mesero cargado)',
+      'TAKEAWAY': 'Mostrador / para llevar',
+      'DELIVERY': 'Domicilio / Uber',
+    };
+    const map = {};
+
+    sales.forEach((sale) => {
+      if (sale.waiterId) return;
+      const key = sale.saleType || 'OTRO';
+      if (!map[key]) {
+        map[key] = { saleType: key, label: labels[key] || key, tickets: 0, totalSales: 0 };
+      }
+      map[key].tickets += 1;
+      map[key].totalSales += sale.total;
+    });
+
+    return Object.values(map).sort((a, b) => b.totalSales - a.totalSales);
   }
 
   /**

@@ -44,6 +44,7 @@ async function syncDailyData() {
 
     const topProducts = getTopProducts(sales, 5);
     const waiterPerformance = FudoClient.calculateWaiterMetrics(sales);
+    const channelPerformance = FudoClient.calculateChannelMetrics(sales);
     const salesByHour = fudo.calculateSalesByHour(sales);
     const tipsTotal = sales.reduce((sum, s) => sum + (s.tips || 0), 0);
 
@@ -53,6 +54,7 @@ async function syncDailyData() {
       metrics,
       topProducts,
       waiterPerformance,
+      channelPerformance,
       salesByHour,
       tipsTotal,
     };
@@ -71,6 +73,7 @@ async function syncDailyData() {
     await basecamp.updateDailyMessage(metrics, {
       topProducts,
       waiterPerformance,
+      channelPerformance,
       salesByHour,
       tipsTotal,
       previousDay,

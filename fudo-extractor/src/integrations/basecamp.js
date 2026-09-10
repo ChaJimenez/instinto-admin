@@ -144,7 +144,7 @@ class BasecampIntegration {
 
   formatDailyBlockHTML(metrics, extra = {}) {
     const { kpis, period } = metrics;
-    const { topProducts = [], waiterPerformance = [], salesByHour = [], tipsTotal = 0, previousDay = null } = extra;
+    const { topProducts = [], waiterPerformance = [], channelPerformance = [], salesByHour = [], tipsTotal = 0, previousDay = null } = extra;
 
     const cogsLine = kpis.cogsPercentage === null
       ? '<em>COGS: sin datos de costo cargados en Fudo</em>'
@@ -181,6 +181,17 @@ class BasecampIntegration {
       waiterHTML = `<p><strong>Por mesero:</strong></p><ul>${rows}</ul>`;
     }
 
+    // Aparte de "por mesero": mostrador/domicilio/Uber no tienen mesero por
+    // diseño, no es un dato faltante — compararlas contra un mesero real
+    // como si fuera una persona más no tiene sentido.
+    let channelHTML = '';
+    if (channelPerformance.length > 0) {
+      const rows = channelPerformance
+        .map((c) => `<li>${c.label}: ${c.tickets} tickets · $${c.totalSales.toLocaleString('es-MX')}</li>`)
+        .join('');
+      channelHTML = `<p><strong>Ventas sin mesero (por canal):</strong></p><ul>${rows}</ul>`;
+    }
+
     const tipsLine = tipsTotal > 0 ? `<p>Propinas: $${tipsTotal.toLocaleString('es-MX')}</p>` : '';
 
     return `
@@ -192,6 +203,7 @@ class BasecampIntegration {
       ${hourHTML}
       ${productsHTML}
       ${waiterHTML}
+      ${channelHTML}
     `;
   }
 
