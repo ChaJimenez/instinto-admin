@@ -365,7 +365,12 @@ class FudoClient {
       sale.items.forEach((item) => {
         if (item.canceled) return;
         itemsTotal += 1;
-        totalSales += item.quantity * item.price;
+        // item.price ya es el total de la línea (confirmado con datos reales:
+        // una línea de 8 Victoria Familiar a $170 c/u trae price=1360, no 170)
+        // — NO multiplicar por quantity de nuevo. item.cost en cambio es el
+        // costo UNITARIO del catálogo (viene del producto, no de la línea de
+        // venta), así que ese sí se multiplica por quantity.
+        totalSales += item.price;
         if (item.cost === null || item.cost === undefined) {
           itemsWithoutCost += 1;
         } else {

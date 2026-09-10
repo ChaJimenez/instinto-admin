@@ -116,7 +116,9 @@ function getTopProducts(sales, limit = 5) {
         productMap[item.productId] = { name: item.productName, quantity: 0, revenue: 0 };
       }
       productMap[item.productId].quantity += item.quantity;
-      productMap[item.productId].revenue += item.price * item.quantity;
+      // item.price ya es el total de la línea, no el precio unitario — no
+      // volver a multiplicar por quantity (ver comentario en calculateCOGS).
+      productMap[item.productId].revenue += item.price;
     });
   });
 
