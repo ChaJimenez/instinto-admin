@@ -20,6 +20,7 @@ class BasecampIntegration {
     this.bucketId = config.bucketId || process.env.BASECAMP_BUCKET_ID || '32427345';
     this.messageBoardId = config.messageBoardId || process.env.BASECAMP_MESSAGE_BOARD_ID || '6062062956';
     this.dailyMessageId = config.dailyMessageId || process.env.BASECAMP_MESSAGE_ID || '10289129219';
+    this.inventoryMessageId = config.inventoryMessageId || process.env.BASECAMP_INVENTORY_MESSAGE_ID || '10289204960';
   }
 
   async run(args) {
@@ -60,6 +61,67 @@ class BasecampIntegration {
 
     console.log(`✅ Corte del día agregado a Basecamp (mensaje ${this.dailyMessageId})`);
     return result;
+  }
+
+  /**
+   * Actualiza el mensaje fijo de inventario prependiendo las alertas del día.
+   * Mismo patrón que updateDailyMessage: un hilo fijo, se le agrega arriba
+   * cada corte. Si no hay nada que alertar ese día, igual se agrega un
+   * bloque corto confirmando que se revisó (para no dejar duda de si corrió).
+   */
+  async updateInventoryMessage(lowStockResult, dateLabel) {
+    if (!this.inventoryMessageId) {
+      console.warn('⚠️  BASECAMP_INVENTORY_MESSAGE_ID no configurado — no se actualiza el reporte de inventario.');
+      return null;
+    }
+
+    const current = await this.run([
+      'messages', 'show', this.inventoryMessageId,
+      '--message-board', this.messageBoardId,
+    ]);
+    const previousContent = current.data?.content || current.content || '';
+
+    const todayBlock = this.formatInventoryBlockHTML(lowStockResult, dateLabel);
+    const newContent = todayBlock + '<hr>' + previousContent;
+
+    const result = await this.run([
+      'messages', 'update', this.inventoryMessageId,
+      '--message-board', this.messageBoardId,
+      '--body', newContent,
+    ]);
+
+    console.log(`✅ Alertas de inventario agregadas a Basecamp (mensaje ${this.inventoryMessageId})`);
+    return result;
+  }
+
+  formatInventoryBlockHTML(lowStockResult, dateLabel) {
+    const { negative, low, missingThreshold } = lowStockResult;
+
+    if (negative.length === 0 && low.length === 0) {
+      return `<p><strong>📦 ${dateLabel}</strong> — sin alertas de stock.</p>`;
+    }
+
+    let html = `<p><strong>📦 ${dateLabel}</strong></p>`;
+
+    if (negative.length > 0) {
+      const rows = negative
+        .map((i) => `<li><strong>${i.name}</strong>: ${i.stock} (inventario en negativo — revisar conteo)</li>`)
+        .join('');
+      html += `<p style="color:#ef4444;"><strong>🔴 Inventario roto (stock negativo):</strong></p><ul>${rows}</ul>`;
+    }
+
+    if (low.length > 0) {
+      const rows = low
+        .map((i) => `<li><strong>${i.name}</strong>: ${i.stock} (mínimo: ${i.minStock})</li>`)
+        .join('');
+      html += `<p style="color:#f59e0b;"><strong>🟡 Bajo stock:</strong></p><ul>${rows}</ul>`;
+    }
+
+    if (missingThreshold.length > 0) {
+      html += `<p><small>${missingThreshold.length} insumo(s) con control de stock activo pero sin "Stock mínimo" configurado — no se pueden evaluar.</small></p>`;
+    }
+
+    return html;
   }
 
   /**

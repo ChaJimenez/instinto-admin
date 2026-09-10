@@ -216,6 +216,51 @@ class FudoClient {
   }
 
   /**
+   * Insumos (ingredientes). Endpoint confirmado: GET /ingredients
+   * (no /supplies, /stocks ni /inventories — esos dan 404).
+   * `minStock` es el umbral de alerta configurado a mano por insumo en Fudo;
+   * viene `null` si nunca se llenó, y en ese caso no hay contra qué comparar.
+   */
+  async getIngredients() {
+    const { data, included } = await this.fetchAllPages('/ingredients?include=ingredientCategory');
+    return data.map((ing) => {
+      const attrs = ing.attributes || {};
+      const categoryRef = ing.relationships?.ingredientCategory?.data;
+      const category = FudoClient.findIncluded(included, categoryRef);
+      return {
+        id: ing.id,
+        name: attrs.name,
+        cost: attrs.cost ?? null,
+        stock: attrs.stock ?? null,
+        minStock: attrs.minStock ?? null,
+        stockControl: !!attrs.stockControl,
+        categoryName: category?.attributes?.name || null,
+      };
+    });
+  }
+
+  /**
+   * Insumos en riesgo, calculado del lado del cliente a partir de getIngredients().
+   * Dos categorías, porque significan cosas distintas:
+   * - `negative`: stock < 0 — no es "bajo stock", es un inventario roto (conteo
+   *   inicial nunca cargado, o desajuste de unidades receta/compra). Se reporta
+   *   siempre, sin importar si hay minStock configurado.
+   * - `low`: stock <= minStock configurado. Se omite si stockControl es false
+   *   o si minStock es null (no hay umbral contra qué comparar).
+   */
+  static calculateLowStock(ingredients) {
+    const tracked = ingredients.filter((i) => i.stockControl && i.stock !== null);
+
+    const negative = tracked.filter((i) => i.stock < 0);
+    const low = tracked.filter(
+      (i) => i.stock >= 0 && i.minStock !== null && i.stock <= i.minStock
+    );
+    const missingThreshold = tracked.filter((i) => i.minStock === null);
+
+    return { negative, low, missingThreshold };
+  }
+
+  /**
    * Empleados/usuarios. En Fudo se llaman "users", no "employees".
    * Endpoint confirmado: GET /users
    */

@@ -58,6 +58,10 @@ async function syncDailyData() {
     console.log(`   🎫 Ticket promedio: $${metrics.kpis.averageCheck}`);
 
     await basecamp.updateDailyMessage(metrics);
+
+    const ingredients = await fudo.getIngredients();
+    const lowStockResult = FudoClient.calculateLowStock(ingredients);
+    await basecamp.updateInventoryMessage(lowStockResult, fudo.formatDate(today));
   } catch (error) {
     console.error('❌ Error en sincronización diaria:', error.message);
   }
