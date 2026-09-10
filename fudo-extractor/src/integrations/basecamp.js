@@ -201,7 +201,6 @@ class BasecampIntegration {
     let toppingsHTML = '';
     if (toppingsByWaiter.length > 0) {
       const rows = toppingsByWaiter
-        .filter((w) => w.toppingsQty > 0)
         .map((w) => `<li>${w.name}: ${w.attachmentRate}% de tickets con extra · ${w.toppingsQty} extra(s) · $${w.toppingsRevenue.toLocaleString('es-MX')}</li>`)
         .join('');
       if (rows) {
