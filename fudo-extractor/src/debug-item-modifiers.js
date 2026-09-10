@@ -9,22 +9,15 @@ const FudoClient = require('./fudo-client');
  * ligados a grupos de modificadores por platillo — pero no sabemos todavía
  * el nombre del `include` ni de la relación en /sales que los trae.
  *
- * Estrategia: probar varios `include` candidatos contra /sales (uno por
- * uno, para que un include inválido no tire toda la petición) y, aparte,
- * sondear endpoints candidatos de modificadores directamente.
+ * Primera corrida (2026-09-10) probó includes candidatos uno por uno contra
+ * /sales — todos fallaron con 400, pero el propio error de Fudo trae en
+ * `detail` el patrón regex COMPLETO de includes válidos (se había estado
+ * recortando a 300 caracteres, perdiendo la lista real). Este script ahora
+ * dispara UN include inválido a propósito, imprime el patrón sin recortar,
+ * y busca "modif" dentro de él para encontrar el nombre real de la relación.
  *
  * Uso: node src/debug-item-modifiers.js
  */
-
-const CANDIDATE_INCLUDES = [
-  'items.modifiers',
-  'items.itemModifiers',
-  'items.modifierItems',
-  'items.product.modifierGroups',
-  'items.selectedModifiers',
-  'items.modifiers.modifier',
-  'items.addons',
-];
 
 const CANDIDATE_ENDPOINTS = [
   '/modifiers',
@@ -44,32 +37,21 @@ async function main() {
   await fudo.authenticate();
   console.log('✅ Autenticado.\n');
 
-  const target = new Date('2026-09-09T12:00:00-06:00');
-  const localDate = fudo.formatDate(target);
+  console.log('=== Paso 1: capturar la lista COMPLETA de `include` válidos en /sales ===');
+  console.log('(Fudo valida `include` contra un regex y lo manda de vuelta entero en el error 400.)\n');
+  try {
+    await fudo.request('GET', '/sales?include=__forzar_error_400__&page[size]=1');
+    console.log('(No falló — raro, revisar a mano.)');
+  } catch (error) {
+    const body = error.response?.data;
+    const detail = body?.errors?.[0]?.detail || '';
+    console.log('Detalle completo del error:\n', detail);
 
-  console.log('=== Paso 1: probar `include` candidatos contra /sales ===');
-  for (const include of CANDIDATE_INCLUDES) {
-    const path = `/sales?filter[createdAt]=and(gte.${localDate},lte.${localDate})&include=items.product,${include}&page[size]=3`;
-    console.log(`\n--- include=items.product,${include} ---`);
-    try {
-      const response = await fudo.request('GET', path);
-      const includedTypes = [...new Set((response.included || []).map((i) => i.type))];
-      console.log('OK — included types:', includedTypes);
-      const extraIncluded = (response.included || []).filter(
-        (i) => i.type !== 'product' && i.type !== 'waiter' && i.type !== 'payment' && i.type !== 'tip'
-      );
-      if (extraIncluded.length > 0) {
-        console.log('Muestra de included nuevo:', JSON.stringify(extraIncluded[0], null, 2));
-      }
-    } catch (error) {
-      const status = error.response?.status;
-      const body = error.response?.data;
-      console.log(`✗ Falló (${status || error.message})`);
-      if (body) console.log('  detalle:', JSON.stringify(body).substring(0, 300));
-    }
+    const modifierMatches = detail.match(/[a-zA-Z.]*modif[a-zA-Z.]*/gi) || [];
+    console.log('\nCoincidencias con "modif" en la lista de includes válidos:', [...new Set(modifierMatches)]);
   }
 
-  console.log('\n\n=== Paso 2: probar endpoints candidatos directos ===');
+  console.log('\n\n=== Paso 2: probar endpoints candidatos directos de modificadores ===');
   for (const path of CANDIDATE_ENDPOINTS) {
     console.log(`\n=== GET ${path} ===`);
     try {
@@ -94,18 +76,8 @@ async function main() {
     }
   }
 
-  console.log('\n\n=== Paso 3: inspeccionar un item de venta crudo (sin include extra) ===');
-  console.log('Por si el modificador ya viene embebido en attributes del item, sin relationship.');
-  try {
-    const path = `/sales?filter[createdAt]=and(gte.${localDate},lte.${localDate})&include=items.product&page[size]=1`;
-    const response = await fudo.request('GET', path);
-    const sale = response?.data?.[0];
-    const itemRef = sale?.relationships?.items?.data?.[0];
-    const item = (response.included || []).find((i) => i.type === itemRef?.type && i.id === itemRef?.id);
-    console.log('Item crudo completo:', JSON.stringify(item, null, 2));
-  } catch (error) {
-    console.log(`✗ Falló (${error.response?.status || error.message})`);
-  }
+  console.log('\n\n=== Paso 3: inspeccionar un item de venta crudo con el include de modificadores que resulte válido ===');
+  console.log('(Editar MODIFIER_INCLUDE abajo con lo que haya salido del Paso 1 antes de correr esta parte de nuevo si hace falta.)');
 
   console.log('\n\nListo. Pega toda esta salida en el chat.');
 }
