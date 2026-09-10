@@ -42,12 +42,19 @@ async function syncDailyData() {
 
     const metrics = KPICalculator.calculate(sales, cogsResult, manualLaborCost, period);
 
+    const topProducts = getTopProducts(sales, 5);
+    const waiterPerformance = FudoClient.calculateWaiterMetrics(sales);
+    const salesByHour = fudo.calculateSalesByHour(sales);
+    const tipsTotal = sales.reduce((sum, s) => sum + (s.tips || 0), 0);
+
     const dailyData = {
       date: fudo.formatDate(businessDate),
       timestamp: new Date().toISOString(),
       metrics,
-      topProducts: getTopProducts(sales, 5),
-      waiterPerformance: FudoClient.calculateWaiterMetrics(sales),
+      topProducts,
+      waiterPerformance,
+      salesByHour,
+      tipsTotal,
     };
 
     const filename = `daily-${fudo.formatDate(businessDate)}.json`;
@@ -59,7 +66,15 @@ async function syncDailyData() {
     console.log(`   💰 Ventas: $${metrics.kpis.grossSales.toFixed(2)}`);
     console.log(`   🎫 Ticket promedio: $${metrics.kpis.averageCheck}`);
 
-    await basecamp.updateDailyMessage(metrics);
+    const previousDay = readPreviousDay(businessDate);
+
+    await basecamp.updateDailyMessage(metrics, {
+      topProducts,
+      waiterPerformance,
+      salesByHour,
+      tipsTotal,
+      previousDay,
+    });
 
     // Se activa manualmente cuando Cha termine el conteo físico de inventario
     // en Fudo (Ingredientes > Conteo de inventario) — antes de eso, el stock
@@ -71,6 +86,23 @@ async function syncDailyData() {
     }
   } catch (error) {
     console.error('❌ Error en sincronización diaria:', error.message);
+  }
+}
+
+/**
+ * Lee el JSON ya guardado del día inmediato anterior a `businessDate` (si
+ * existe) para poder comparar "vs. ayer" en el corte. Usa los archivos que
+ * ya escribe este mismo script — no pega otra vez a la API de Fudo.
+ */
+function readPreviousDay(businessDate) {
+  const priorDate = new Date(businessDate.getTime() - 24 * 60 * 60 * 1000);
+  const filepath = path.join(dataDir, `daily-${fudo.formatDate(priorDate)}.json`);
+  if (!fs.existsSync(filepath)) return null;
+  try {
+    const data = JSON.parse(fs.readFileSync(filepath, 'utf8'));
+    return { date: data.date, grossSales: data.metrics.kpis.grossSales, covers: data.metrics.kpis.covers };
+  } catch {
+    return null;
   }
 }
 

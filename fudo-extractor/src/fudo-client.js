@@ -305,6 +305,31 @@ class FudoClient {
       .sort((a, b) => b.totalSales - a.totalSales);
   }
 
+  /**
+   * Ventas agrupadas por hora del día (hora local CDMX), para ver el patrón
+   * de tráfico del servicio. Usa closedAt (cuándo se cerró la mesa) porque
+   * es lo que mejor refleja cuándo estuvo ocupado el restaurante.
+   */
+  calculateSalesByHour(sales) {
+    const map = {};
+
+    sales.forEach((sale) => {
+      const ts = sale.closedAt || sale.createdAt;
+      if (!ts) return;
+      const hourStr = new Date(ts).toLocaleString('en-US', {
+        timeZone: 'America/Mexico_City',
+        hour: '2-digit',
+        hour12: false,
+      });
+      const hour = Number(hourStr) % 24;
+      if (!map[hour]) map[hour] = { hour, count: 0, total: 0 };
+      map[hour].count += 1;
+      map[hour].total += sale.total;
+    });
+
+    return Object.values(map).sort((a, b) => a.hour - b.hour);
+  }
+
   // ==================== HELPERS ====================
 
   /**

@@ -38,7 +38,7 @@ class BasecampIntegration {
    * Si no hay BASECAMP_MESSAGE_ID configurado, no hace nada (evita crear
    * mensajes duplicados por accidente).
    */
-  async updateDailyMessage(metrics) {
+  async updateDailyMessage(metrics, extra = {}) {
     if (!this.dailyMessageId) {
       console.warn('⚠️  BASECAMP_MESSAGE_ID no configurado — no se actualiza Basecamp.');
       return null;
@@ -52,7 +52,7 @@ class BasecampIntegration {
     console.log(`   → Actualizando mensaje ${this.dailyMessageId} en bucket ${this.bucketId}: "${subject}"`);
     const previousContent = current.data?.content || current.content || '';
 
-    const todayBlock = this.formatDailyBlockHTML(metrics);
+    const todayBlock = this.formatDailyBlockHTML(metrics, extra);
     const newContent = todayBlock + '<hr>' + previousContent;
 
     const result = await this.run([
@@ -142,17 +142,78 @@ class BasecampIntegration {
     return result;
   }
 
-  formatDailyBlockHTML(metrics) {
+  formatDailyBlockHTML(metrics, extra = {}) {
     const { kpis, period } = metrics;
+    const { topProducts = [], waiterPerformance = [], salesByHour = [], tipsTotal = 0, previousDay = null } = extra;
+
     const cogsLine = kpis.cogsPercentage === null
       ? '<em>COGS: sin datos de costo cargados en Fudo</em>'
       : `COGS: ${kpis.cogsPercentage}%`;
 
+    const comparisonLine = this.formatComparisonLine(kpis, previousDay);
+
+    let hourHTML = '';
+    if (salesByHour.length > 0) {
+      const peakHour = salesByHour.reduce((max, h) => (h.total > max.total ? h : max), salesByHour[0]);
+      const rows = salesByHour
+        .map((h) => {
+          const label = `${String(h.hour).padStart(2, '0')}:00–${String((h.hour + 1) % 24).padStart(2, '0')}:00`;
+          const peakMark = h.hour === peakHour.hour ? ' 🔥' : '';
+          return `<li>${label}: $${h.total.toLocaleString('es-MX')} (${h.count} ticket${h.count === 1 ? '' : 's'})${peakMark}</li>`;
+        })
+        .join('');
+      hourHTML = `<p><strong>Ventas por hora</strong> (🔥 hora pico):</p><ul>${rows}</ul>`;
+    }
+
+    let productsHTML = '';
+    if (topProducts.length > 0) {
+      const rows = topProducts
+        .map((p) => `<li>${p.name}: ${p.quantity} uds · $${p.revenue.toLocaleString('es-MX')}</li>`)
+        .join('');
+      productsHTML = `<p><strong>Top 5 productos:</strong></p><ul>${rows}</ul>`;
+    }
+
+    let waiterHTML = '';
+    if (waiterPerformance.length > 0) {
+      const rows = waiterPerformance
+        .map((w) => `<li>${w.name}: ${w.tickets} tickets · $${w.totalSales.toLocaleString('es-MX')} · promedio $${w.avgTicket.toFixed(2)}</li>`)
+        .join('');
+      waiterHTML = `<p><strong>Por mesero:</strong></p><ul>${rows}</ul>`;
+    }
+
+    const tipsLine = tipsTotal > 0 ? `<p>Propinas: $${tipsTotal.toLocaleString('es-MX')}</p>` : '';
+
     return `
       <p><strong>📅 ${period.end}</strong></p>
       <p>Ventas: $${kpis.grossSales.toLocaleString('es-MX')} · Tickets: ${kpis.covers} · Ticket promedio: $${kpis.averageCheck}</p>
+      ${comparisonLine}
       <p>${cogsLine}</p>
+      ${tipsLine}
+      ${hourHTML}
+      ${productsHTML}
+      ${waiterHTML}
     `;
+  }
+
+  /**
+   * "vs. ayer" — la comparación día a día es lo primero que un gerente de
+   * restaurante quiere ver en un corte diario, más que el número absoluto.
+   * Se omite si no hay datos guardados del día anterior (primera corrida).
+   */
+  formatComparisonLine(kpis, previousDay) {
+    if (!previousDay || !previousDay.grossSales) return '';
+    const deltaSales = ((kpis.grossSales - previousDay.grossSales) / previousDay.grossSales) * 100;
+    const deltaCovers = previousDay.covers
+      ? ((kpis.covers - previousDay.covers) / previousDay.covers) * 100
+      : null;
+    const arrow = (n) => (n >= 0 ? '▲' : '▼');
+    const color = (n) => (n >= 0 ? '#16a34a' : '#ef4444');
+
+    const coversText = deltaCovers === null
+      ? ''
+      : ` · Tickets <span style="color:${color(deltaCovers)};">${arrow(deltaCovers)} ${Math.abs(deltaCovers).toFixed(1)}%</span>`;
+
+    return `<p><small>vs. ${previousDay.date}: <span style="color:${color(deltaSales)};">${arrow(deltaSales)} ${Math.abs(deltaSales).toFixed(1)}%</span> en ventas${coversText}</small></p>`;
   }
 
   formatWeeklyHTML(metrics, dailyBreakdown = null) {
