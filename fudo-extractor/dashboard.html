@@ -229,78 +229,309 @@
         <header>
             <div>
                 <h1>🍽️ INSTINTO</h1>
-                <p class="date-info">Control de Operaciones - Semana del 8-14 de Julio, 2026</p>
+                <p class="date-info">Control de Operaciones - Julio 2026 (1-16, datos reales Fudo)</p>
             </div>
             <div class="date-info">
-                <p>Generado: 14/07/2026 08:15 AM</p>
+                <p>Generado: 16/07/2026 · fuente: Fudo POS, consulta directa /sales</p>
             </div>
         </header>
+
+        <!-- Propuesta de incentivo de toppings -->
+        <div class="chart-card full-width" style="margin-bottom:30px; border-left:5px solid var(--primary);">
+            <div class="chart-title">🎯 Propuesta de Incentivo: Venta de Toppings</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Mesero</th>
+                        <th>Toppings/semana (ritmo actual)</th>
+                        <th>¿Llega al mínimo de 20/semana?</th>
+                        <th>Le falta</th>
+                        <th>Bono si cumple (est. $5/topping)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Montse</strong></td>
+                        <td class="metric-positive">~20.6</td>
+                        <td><span class="status-good">✓ Sí, apenas — al filo del mínimo</span></td>
+                        <td>—</td>
+                        <td class="metric-positive">~$103/semana</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Daniela Carrillo</strong></td>
+                        <td>~14.9</td>
+                        <td><span class="status-warning">⚠ No — le falta 34% más</span></td>
+                        <td>+5.1/semana</td>
+                        <td>$0 hasta que llegue a 20 → luego ~$100/semana</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Sam</strong></td>
+                        <td>~7.9</td>
+                        <td><span class="status-danger">✗ No — le falta 154% más (casi 2.5x)</span></td>
+                        <td>+12.1/semana</td>
+                        <td>$0 hasta que llegue a 20 → luego ~$100/semana</td>
+                    </tr>
+                </tbody>
+            </table>
+            <p class="date-info" style="margin-top:12px;">
+                <strong>Corrección sobre lo que te dije antes:</strong> revisé el catálogo real de Fudo (<code>/products</code>) y Extra carne
+                <strong>sí cuesta $58</strong>, no $7 — ese $7 salía de promediar tickets con precio completo junto con toppings que Fudo registró
+                <strong>gratis (comped)</strong>, y esos $0 casi todos vienen de delivery, no de mesa. Precios reales pagados: Chicharrón de queso $39,
+                Lenguas de tocino $45, Salsa de quesos y tocino $45, Extra carne $58, Aguacate $58. Con estos precios, <strong>$5 parejo por topping es seguro
+                en los 5 sabores</strong> (8-13% del precio) — no hace falta bajarle a ninguno.
+            </p>
+            <p class="date-info" style="margin-top:8px;">
+                <strong>20/semana total (cualquier combinación de sabores) sí motiva:</strong> Montse apenas lo alcanza hoy — no es un techo regalado —
+                y Daniela y Sam tienen que crecer de verdad para cobrar (34% y 154% respectivamente). Mejor que un mínimo por sabor específico
+                (ahí nadie llega ni a la mitad, ver mesero anterior de esta conversación).
+            </p>
+            <p class="date-info" style="margin-top:8px;">
+                <strong>Costo si los 3 llegan a 20/semana:</strong> 60 toppings/semana × $5 = <strong>$300/semana</strong>, contra ~$2,700/semana
+                en ingreso de toppings a ese ritmo (60 × $45 precio promedio). El incentivo cuesta ~11% de lo que genera.
+            </p>
+            <p class="date-info" style="margin-top:8px;">
+                <strong>Hallazgo aparte que vale revisar:</strong> en delivery (168 tickets sin mesero) hay 32 toppings vendidos, pero 18 de esos
+                (56%) están registrados en Fudo con precio $0 — es decir, se están regalando. Si fuera precio completo serían ~$860 más en 16 días.
+                No sé si es una promo intencional de las apps o un error de captura; no toca el incentivo de meseros (ellos no venden delivery),
+                pero es plata sobre la mesa que vale la pena checar aparte.
+            </p>
+        </div>
+
+        <!-- Impacto financiero si 2 de 3 lo logran -->
+        <div class="chart-card full-width" style="margin-bottom:30px; border-left:5px solid var(--secondary);">
+            <div class="chart-title">📈 Impacto Financiero: si 2 de 3 Meseros Llegan a 20/Semana</div>
+            <p class="date-info">
+                Escenario más probable: <strong>Montse ya está ahí</strong> (~20.6/semana) y <strong>Daniela es la que está más cerca</strong> de cerrar
+                la brecha (+5.1/semana, +34%). Sam se queda en su ritmo actual (~7.9/semana) y no cobra bono porque no llega al mínimo.
+            </p>
+            <table style="margin-top:12px;">
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th>Hoy (sin incentivo)</th>
+                        <th>Si Montse + Daniela llegan a 20/sem</th>
+                        <th>Diferencia</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Toppings/semana (3 meseros)</td>
+                        <td>43.4</td>
+                        <td>48.5</td>
+                        <td class="metric-positive">+5.1 (+12%)</td>
+                    </tr>
+                    <tr>
+                        <td>Ingreso en toppings/semana</td>
+                        <td>$1,925</td>
+                        <td>$2,179</td>
+                        <td class="metric-positive">+$254 (+13%)</td>
+                    </tr>
+                    <tr>
+                        <td>Bono pagado/semana</td>
+                        <td>$0</td>
+                        <td>$203 (Montse $103 + Daniela $100)</td>
+                        <td class="metric-negative">–$203</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Neto cash/semana</strong></td>
+                        <td>—</td>
+                        <td><strong>+$51</strong></td>
+                        <td>—</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Proyección mensual (×4.33)</strong></td>
+                        <td>—</td>
+                        <td><strong>+~$220/mes neto</strong></td>
+                        <td>—</td>
+                    </tr>
+                </tbody>
+            </table>
+            <p class="date-info" style="margin-top:12px;">
+                <strong>El punto flaco de este diseño:</strong> de los $203/semana en bonos, $103 se los llevas a Montse por algo que
+                <strong>ya estaba haciendo antes del incentivo</strong> — no es plata que compra comportamiento nuevo, es un "regalo" a quien ya iba bien.
+                Solo los $100 de Daniela están comprando crecimiento real. Por eso el neto es tan angosto (+$51/semana) pese a que las ventas
+                de toppings suben 13%.
+            </p>
+            <p class="date-info" style="margin-top:8px;">
+                <strong>Alternativa más eficiente en plata</strong> (más compleja de explicar): pagar $5 solo sobre lo que cada quien vende
+                <em>por encima de su propio promedio actual</em>, no sobre el total una vez que cruza el mínimo. Con esa regla, Montse cobra $0 extra
+                (no cambió su comportamiento) y Daniela cobra solo $25.50/semana por sus 5.1 toppings de más — el bono baja de $203 a ~$26/semana
+                y el neto sube a <strong>+~$228/semana (+~$986/mes)</strong>. Es ~4x más eficiente en plata, pero el riesgo humano es que Montse,
+                siendo la mejor, sienta que no la premias por nada — vale la pena resolverlo con un reconocimiento aparte (no monetario) para top performer,
+                no solo con el bono.
+            </p>
+            <p class="date-info" style="margin-top:8px;">
+                <strong>Contexto de tamaño:</strong> el ingreso total de estas 16 días fue $230,149.70 (~$100,690/semana). Los toppings de meseros hoy son
+                ~1.9% de esa venta semanal; el incremento que buscas con el incentivo (+$254/semana) es ~0.25% del total. Es un lever real y barato
+                de mover, pero no es el que va a mover la aguja grande del negocio — vale la pena por sí mismo, no como sustituto de otras palancas
+                (ticket promedio, mix de bebidas, etc.).
+            </p>
+            <p class="date-info" style="margin-top:8px;">
+                <strong>Lo que falta para que esto sea preciso y no una estimación:</strong> todo este cálculo es sobre <em>ingreso</em>, no margen —
+                Fudo no tiene el costo cargado por producto (COGS en null, visto arriba), así que no sé qué % de esos $254/semana extra realmente
+                le queda al negocio después de insumos. Y son solo 16 días de julio — no hay forma de saber si este ritmo es representativo de un mes
+                normal o si julio viene raro (vacaciones, clima, etc.) hasta tener más semanas de historial.
+            </p>
+        </div>
+
+        <!-- Versión final: un solo topping (Chicharrón de queso) con COGS real -->
+        <div class="chart-card full-width" style="margin-bottom:30px; border-left:5px solid var(--success);">
+            <div class="chart-title">🧀 Versión Simple Final: Solo Chicharrón de Queso, con COGS 32%</div>
+
+            <p class="date-info">
+                <strong>Proyección de venta de julio</strong> (venta diaria promedio del 1-16 × 31 días): venta 1-16 julio = $230,149.80 →
+                <strong>$14,384.36/día</strong> → julio completo proyectado ≈ <strong>$445,915.24</strong>. Con COGS 32%: costo de insumos ≈ $142,692.88,
+                margen bruto ≈ <strong>$303,222.36</strong> para el mes. Esto es el marco de referencia — el incentivo de toppings se mide contra esto.
+            </p>
+
+            <p class="date-info" style="margin-top:12px;">
+                <strong>Ojo con el 20-22:</strong> ese número salía de sumar los 5 sabores. Chicharrón de queso solo, hoy, va mucho más lento:
+                Daniela ~5.7/semana, Montse ~5.25/semana, Sam ~4.4/semana. Un mínimo de 20-22 para <em>un solo</em> topping le pediría a Daniela
+                crecer +252% y a Montse +281% — nadie lo va a alcanzar nunca, el incentivo pagaría $0 para siempre y no mueve nada
+                (no es que pierdas dinero, es que no pasa nada).
+            </p>
+
+            <table style="margin-top:12px;">
+                <thead>
+                    <tr>
+                        <th>Umbral (chicharrón/semana)</th>
+                        <th>¿Quién lo alcanza hoy?</th>
+                        <th>Toppings/semana (3 meseros)</th>
+                        <th>Margen bruto extra/semana (68%)</th>
+                        <th>Bono/semana</th>
+                        <th>Neto/semana</th>
+                        <th>Neto/mes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>6</td>
+                        <td>Casi todos ya están ahí</td>
+                        <td>16.4</td>
+                        <td>+$28</td>
+                        <td>$60</td>
+                        <td class="status-danger">–$32</td>
+                        <td class="status-danger">–$138</td>
+                    </tr>
+                    <tr class="rank-1" style="background:#FFF9E6;">
+                        <td><strong>8 — recomendado</strong></td>
+                        <td>Nadie, requiere +33-52% de esfuerzo real</td>
+                        <td>20.4</td>
+                        <td>+$134</td>
+                        <td>$80</td>
+                        <td class="metric-positive"><strong>+$54</strong></td>
+                        <td class="metric-positive"><strong>+$235</strong></td>
+                    </tr>
+                    <tr>
+                        <td>10</td>
+                        <td>Nadie, requiere +76-90%</td>
+                        <td>24.4</td>
+                        <td>+$240</td>
+                        <td>$100</td>
+                        <td class="metric-positive">+$140</td>
+                        <td class="metric-positive">+$608</td>
+                    </tr>
+                    <tr>
+                        <td>20 (tu número original)</td>
+                        <td class="status-danger">Nadie — necesitan 2.5-3.8x su ritmo</td>
+                        <td>—</td>
+                        <td>—</td>
+                        <td>$0 (nunca se paga)</td>
+                        <td>$0</td>
+                        <td class="status-danger">$0 — incentivo muerto, no motiva nada</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <p class="date-info" style="margin-top:12px;">
+                <strong>Por qué 6 sale negativo y 8-10 salen positivos</strong> (esto es lo no obvio): con "$5 por topping una vez que cruzas el mínimo",
+                el bono se paga sobre <em>todas</em> las unidades, no solo las nuevas. Si el mínimo está muy cerca de lo que ya venden (6 vs. su ritmo de
+                ~5.3-5.7), casi todo el bono es "regalo" sobre ventas que ya iban a pasar, y el margen que sí es nuevo no alcanza a cubrirlo.
+                La regla general con estos números (chicharrón $39, margen 68%, bono $5): el mínimo tiene que ser <strong>al menos ~1.23x el ritmo actual
+                de cada quien</strong> para que el bono se pague solo. Por eso 8 funciona (es +52% sobre Montse, +41% sobre Daniela) y 6 no (+14% y +5%,
+                muy poco crecimiento real para cubrir el bono).
+            </p>
+
+            <p class="date-info" style="margin-top:8px;">
+                <strong>Recomendación:</strong> mínimo de <strong>8 chicharrones de queso por semana</strong>, $5 c/u una vez que se cruza. Es real esfuerzo
+                para los 3, no le regala nada a nadie, y deja +$235/mes limpios (contra los +$608/mes de la versión de 10, más agresiva pero más difícil
+                de vender internamente como "alcanzable"). Sirve además tu objetivo de mover específicamente el sabor con mejor costo, sin diluir el
+                esfuerzo del equipo en los otros 4.
+            </p>
+
+            <p class="date-info" style="margin-top:8px;">
+                <strong>Advertencia sobre el 32% de COGS:</strong> lo estoy aplicando parejo (venta total y chicharrón) porque es el número que me diste.
+                Si el costo real de chicharrón de queso es mejor que el 32% general (dijiste que es el de mejor costo del grupo), el margen y el neto de
+                arriba están <em>subestimados</em> — con un COGS más bajo específico para este ítem, el neto/mes sube más todavía. En cuanto tengas el costo
+                real cargado en Fudo (pendiente del handoff: subir el Excel de costos) puedo recalcular con la cifra exacta en vez de la general.
+            </p>
+        </div>
 
         <!-- KPI Cards -->
         <div class="kpi-grid">
             <div class="kpi-card success">
-                <div class="kpi-label">Ventas Totales</div>
-                <div class="kpi-value">$45,230.00</div>
-                <div class="kpi-subtitle">📈 +12% vs semana anterior</div>
+                <div class="kpi-label">Tickets</div>
+                <div class="kpi-value">494</div>
+                <div class="kpi-subtitle">1-16 julio 2026 (16 días)</div>
             </div>
 
             <div class="kpi-card">
-                <div class="kpi-label">Ticket Promedio</div>
-                <div class="kpi-value">$189.50</div>
-                <div class="kpi-subtitle">Basado en 238 órdenes</div>
+                <div class="kpi-label">Burgers vendidas</div>
+                <div class="kpi-value">681</div>
+                <div class="kpi-subtitle">Incluye combos (~1.4 por ticket)</div>
+            </div>
+
+            <div class="kpi-card">
+                <div class="kpi-label">Toppings por ticket</div>
+                <div class="kpi-value">0.27</div>
+                <div class="kpi-subtitle">133 toppings vendidos / 494 tickets</div>
             </div>
 
             <div class="kpi-card warning">
+                <div class="kpi-label">Tickets con topping</div>
+                <div class="kpi-value">16.4%</div>
+                <div class="kpi-subtitle">81 de 494 — 1.6 toppings en promedio cuando sí piden</div>
+            </div>
+
+            <div class="kpi-card danger">
                 <div class="kpi-label">COGS (Costo de Bienes)</div>
-                <div class="kpi-value">32.5%</div>
-                <div class="kpi-subtitle"><span class="status-good">✓ Dentro de meta (35%)</span></div>
+                <div class="kpi-value">Sin datos</div>
+                <div class="kpi-subtitle"><span class="status-danger">✗ product.cost null en ~99% de productos</span></div>
             </div>
 
-            <div class="kpi-card success">
-                <div class="kpi-label">Margen Bruto</div>
-                <div class="kpi-value">67.5%</div>
-                <div class="kpi-subtitle">Ganancia: $30,430</div>
+            <div class="kpi-card danger">
+                <div class="kpi-label">Labor %</div>
+                <div class="kpi-value">Sin datos</div>
+                <div class="kpi-subtitle">Fudo no captura nómina</div>
+            </div>
+
+            <div class="kpi-card warning">
+                <div class="kpi-label">Tickets sin mesero</div>
+                <div class="kpi-value">34%</div>
+                <div class="kpi-subtitle">168 de 494 — probable delivery (Uber Eats/Rappi)</div>
             </div>
 
             <div class="kpi-card">
-                <div class="kpi-label">Órdenes/Día</div>
-                <div class="kpi-value">34</div>
-                <div class="kpi-subtitle">Total: 238 órdenes</div>
-            </div>
-
-            <div class="kpi-card">
-                <div class="kpi-label">Punto de Equilibrio</div>
-                <div class="kpi-value">26 tickets</div>
-                <div class="kpi-subtitle"><span class="status-good">✓ Superado diariamente</span></div>
-            </div>
-
-            <div class="kpi-card success">
-                <div class="kpi-label">Restaurant vs Domicilio</div>
-                <div class="kpi-value">72% / 28%</div>
-                <div class="kpi-subtitle">$32,566 / $12,664</div>
-            </div>
-
-            <div class="kpi-card success">
-                <div class="kpi-label">Ganancias Netas</div>
-                <div class="kpi-value">$18,930</div>
-                <div class="kpi-subtitle">Costos fijos: $11,500/semana</div>
+                <div class="kpi-label">Ticket promedio con mesero</div>
+                <div class="kpi-value">$536</div>
+                <div class="kpi-subtitle">vs $325 en tickets sin mesero asignado</div>
             </div>
         </div>
 
         <!-- Charts -->
         <div class="charts-grid">
             <div class="chart-card">
-                <div class="chart-title">📊 Ventas Diarias</div>
-                <canvas id="dailySalesChart"></canvas>
+                <div class="chart-title">👨‍💼 Ventas por Mesero</div>
+                <canvas id="waiterChart"></canvas>
             </div>
 
             <div class="chart-card">
-                <div class="chart-title">🍽️ Top 5 Productos</div>
-                <canvas id="topProductsChart"></canvas>
+                <div class="chart-title">🍔 Toppings vendidos (modificador o extra)</div>
+                <canvas id="toppingsChart"></canvas>
             </div>
 
             <div class="chart-card full-width">
-                <div class="chart-title">👨‍💼 Performance de Meseros (Top 10)</div>
+                <div class="chart-title">👨‍💼 Desglose de Meseros</div>
                 <table>
                     <thead>
                         <tr>
@@ -310,226 +541,293 @@
                             <th>Ventas</th>
                             <th>Ticket Promedio</th>
                             <th>Propinas</th>
-                            <th>% Propinas</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
                             <td><span class="rank-badge rank-1">1</span></td>
-                            <td><strong>Carlos Rodríguez</strong></td>
-                            <td>42</td>
-                            <td class="metric-positive">$8,256</td>
-                            <td>$196.57</td>
-                            <td>$826</td>
-                            <td class="metric-positive">10.0%</td>
+                            <td><strong>Daniela Carrillo</strong></td>
+                            <td>131</td>
+                            <td class="metric-positive">$69,425</td>
+                            <td>$529.96</td>
+                            <td>$6,572</td>
                         </tr>
                         <tr>
                             <td><span class="rank-badge rank-2">2</span></td>
-                            <td><strong>María González</strong></td>
-                            <td>39</td>
-                            <td class="metric-positive">$7,542</td>
-                            <td>$193.38</td>
-                            <td>$682</td>
-                            <td class="metric-positive">9.0%</td>
+                            <td><strong>Montse</strong></td>
+                            <td>113</td>
+                            <td class="metric-positive">$61,591</td>
+                            <td>$545.05</td>
+                            <td>$5,196</td>
                         </tr>
                         <tr>
                             <td><span class="rank-badge rank-3">3</span></td>
-                            <td><strong>Jorge Martínez</strong></td>
-                            <td>38</td>
-                            <td class="metric-positive">$7,125</td>
-                            <td>$187.5</td>
-                            <td>$570</td>
-                            <td>8.0%</td>
+                            <td><strong>Sam</strong></td>
+                            <td>82</td>
+                            <td class="metric-positive">$44,554</td>
+                            <td>$543.34</td>
+                            <td>$4,321</td>
                         </tr>
                         <tr>
-                            <td><span class="rank-badge">4</span></td>
-                            <td>Andrea López</td>
-                            <td>35</td>
-                            <td>$6,580</td>
-                            <td>$187.71</td>
-                            <td>$526</td>
-                            <td>8.0%</td>
-                        </tr>
-                        <tr>
-                            <td><span class="rank-badge">5</span></td>
-                            <td>Luis Fernández</td>
-                            <td>32</td>
-                            <td>$6,125</td>
-                            <td>$191.41</td>
-                            <td>$459</td>
-                            <td>7.5%</td>
-                        </tr>
-                        <tr>
-                            <td><span class="rank-badge">6</span></td>
-                            <td>Sofia Cortés</td>
-                            <td>28</td>
-                            <td>$5,125</td>
-                            <td>$182.86</td>
-                            <td>$307</td>
-                            <td>6.0%</td>
-                        </tr>
-                        <tr>
-                            <td><span class="rank-badge">7</span></td>
-                            <td>Diego Reyes</td>
-                            <td>24</td>
-                            <td>$4,777</td>
-                            <td>$198.96</td>
-                            <td>$287</td>
-                            <td>6.0%</td>
+                            <td><span class="rank-badge">—</span></td>
+                            <td>Sin asignar (delivery)</td>
+                            <td>168</td>
+                            <td>$54,580</td>
+                            <td>$324.88</td>
+                            <td>$1,521</td>
                         </tr>
                     </tbody>
                 </table>
+                <p class="date-info" style="margin-top:12px;">"Sin asignar" son tickets sin <code>waiter</code> en Fudo — casi seguro delivery (Uber Eats/Rappi), pendiente confirmar cruzando con <code>saleType</code>. Daniela, Montse y Sam suman el resto de los tickets físicos del restaurante.</p>
+            </div>
+
+            <div class="chart-card">
+                <div class="chart-title">🏆 Ranking de Toppings por Mesero</div>
+                <canvas id="toppingsByWaiterChart"></canvas>
             </div>
 
             <div class="chart-card full-width">
-                <div class="chart-title">📦 Análisis de Productos Rentables</div>
+                <div class="chart-title">🧀 Venta de Toppings por Mesero (tabla completa)</div>
                 <table>
                     <thead>
                         <tr>
-                            <th>Producto</th>
-                            <th>Unidades Vendidas</th>
-                            <th>Ingresos</th>
-                            <th>Costo Total</th>
-                            <th>Ganancia</th>
-                            <th>Margen %</th>
-                            <th>Estado</th>
+                            <th>Rank</th>
+                            <th>Mesero</th>
+                            <th>Tickets</th>
+                            <th>Toppings vendidos</th>
+                            <th>Ingreso en toppings</th>
+                            <th>% tickets con topping</th>
+                            <th>Toppings / ticket</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td><strong>Enchiladas Verdes</strong></td>
-                            <td>68</td>
-                            <td class="metric-positive">$3,400</td>
-                            <td>$850</td>
-                            <td class="metric-positive">$2,550</td>
-                            <td class="metric-positive">75%</td>
-                            <td><span class="status-good">✓ ESTRELLA</span></td>
+                            <td><span class="rank-badge rank-1">1</span></td>
+                            <td><strong>Montse</strong></td>
+                            <td>113</td>
+                            <td class="metric-positive">47</td>
+                            <td class="metric-positive">$2,173</td>
+                            <td class="metric-positive">23.9%</td>
+                            <td>0.42</td>
                         </tr>
                         <tr>
-                            <td><strong>Chiles Rellenos</strong></td>
-                            <td>54</td>
-                            <td class="metric-positive">$2,700</td>
-                            <td>$756</td>
-                            <td class="metric-positive">$1,944</td>
-                            <td class="metric-positive">72%</td>
-                            <td><span class="status-good">✓ RENTABLE</span></td>
+                            <td><span class="rank-badge rank-2">2</span></td>
+                            <td><strong>Daniela Carrillo</strong></td>
+                            <td>131</td>
+                            <td>34</td>
+                            <td>$1,478</td>
+                            <td>17.6%</td>
+                            <td>0.26</td>
                         </tr>
                         <tr>
-                            <td><strong>Tacos de Pastor</strong></td>
-                            <td>95</td>
-                            <td class="metric-positive">$2,850</td>
-                            <td>$1,235</td>
-                            <td class="metric-positive">$1,615</td>
-                            <td class="metric-positive">57%</td>
-                            <td><span class="status-good">✓ RENTABLE</span></td>
+                            <td><span class="rank-badge rank-3">3</span></td>
+                            <td><strong>Sam</strong></td>
+                            <td>82</td>
+                            <td>18</td>
+                            <td>$750</td>
+                            <td class="metric-negative">11.0%</td>
+                            <td>0.22</td>
                         </tr>
                         <tr>
-                            <td><strong>Carne Asada</strong></td>
-                            <td>42</td>
-                            <td class="metric-positive">$2,940</td>
-                            <td>$1,470</td>
-                            <td class="metric-positive">$1,470</td>
-                            <td class="metric-positive">50%</td>
-                            <td><span class="status-warning">⚠ REVISAR</span></td>
-                        </tr>
-                        <tr>
-                            <td><strong>Sopa de Tortilla</strong></td>
-                            <td>38</td>
-                            <td class="metric-positive">$1,140</td>
-                            <td>$380</td>
-                            <td class="metric-positive">$760</td>
-                            <td class="metric-positive">67%</td>
-                            <td><span class="status-good">✓ RENTABLE</span></td>
-                        </tr>
-                        <tr>
-                            <td><strong>Quesadillas</strong></td>
-                            <td>72</td>
-                            <td class="metric-positive">$1,800</td>
-                            <td>$900</td>
-                            <td class="metric-positive">$900</td>
-                            <td>50%</td>
-                            <td><span class="status-warning">⚠ REVISAR</span></td>
+                            <td><span class="rank-badge">—</span></td>
+                            <td>Sin asignar (delivery)</td>
+                            <td>168</td>
+                            <td>33</td>
+                            <td>$634</td>
+                            <td>12.5%</td>
+                            <td>0.20</td>
                         </tr>
                     </tbody>
                 </table>
+                <p class="date-info" style="margin-top:12px;">
+                    <strong>Montse casi duplica la tasa de Sam</strong> (23.9% vs 11.0% de sus tickets llevan topping) — es la que mejor sugiere el extra al ordenar.
+                    Si Sam y Daniela llegaran a la tasa de Montse, con el volumen de tickets de estas dos semanas eso son
+                    ~<strong>27 toppings extra</strong> (≈$1,100 adicionales en 16 días, solo con hablar del tema en el pase).
+                    Sirve como base para un torneo semanal o un bono chico por tasa de attach, no por volumen bruto (así no se castiga a quien tiene menos mesas).
+                </p>
+            </div>
+
+            <div class="chart-card full-width">
+                <div class="chart-title">🧀 Qué Topping Vende Cada Mesero</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Mesero</th>
+                            <th>Chicharrón de queso</th>
+                            <th>Lenguas de tocino</th>
+                            <th>Salsa quesos y tocino</th>
+                            <th>Extra carne</th>
+                            <th>Aguacate</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Montse</strong></td>
+                            <td>12</td>
+                            <td class="metric-positive">18</td>
+                            <td>7</td>
+                            <td>7</td>
+                            <td>3</td>
+                            <td><strong>47</strong></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Daniela Carrillo</strong></td>
+                            <td class="metric-positive">13</td>
+                            <td>10</td>
+                            <td>9</td>
+                            <td>2</td>
+                            <td>0</td>
+                            <td><strong>34</strong></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Sam</strong></td>
+                            <td class="metric-positive">10</td>
+                            <td>6</td>
+                            <td>2</td>
+                            <td>0</td>
+                            <td>0</td>
+                            <td><strong>18</strong></td>
+                        </tr>
+                        <tr>
+                            <td>Sin asignar (delivery)</td>
+                            <td>9</td>
+                            <td class="metric-positive">11</td>
+                            <td>1</td>
+                            <td class="metric-positive">11</td>
+                            <td>1</td>
+                            <td><strong>32</strong></td>
+                        </tr>
+                        <tr>
+                            <td>Total general</td>
+                            <td>44</td>
+                            <td>45</td>
+                            <td>19</td>
+                            <td>20</td>
+                            <td>4</td>
+                            <td><strong>132</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <p class="date-info" style="margin-top:12px;">
+                    Chicharrón de queso y Lenguas de tocino son el 68% de todos los toppings — los dos que más vale la pena sugerir primero.
+                    Montse es la única que mueve los 5 sabores (hasta Aguacate, el más raro); Sam solo ofrece 3 de los 5 —
+                    ahí hay una oportunidad concreta de coaching: enseñarle a ofrecer Salsa de quesos y tocino y Extra carne, que hoy vende en cero.
+                </p>
+            </div>
+
+            <div class="chart-card full-width">
+                <div class="chart-title">📦 Top 10 Productos por Unidades Vendidas</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Producto</th>
+                            <th>Unidades</th>
+                            <th>Ingresos</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td><strong>CORONA</strong></td><td>203</td><td class="metric-positive">$23,725</td></tr>
+                        <tr><td><strong>PAPAS FRITAS</strong></td><td>187</td><td class="metric-positive">$15,363</td></tr>
+                        <tr><td><strong>MICHELADA / CUBANA</strong></td><td>181</td><td class="metric-positive">$10,760</td></tr>
+                        <tr><td><strong>CHEESEBURGER CLÁSICA</strong></td><td>171</td><td class="metric-positive">$17,803</td></tr>
+                        <tr><td><strong>DOBLE DOBLE</strong></td><td>157</td><td class="metric-positive">$24,600</td></tr>
+                        <tr><td><strong>COMBO INSTINTO</strong></td><td>142</td><td class="metric-positive">$36,990</td></tr>
+                        <tr><td>REFRESCOS COCA COLA</td><td>138</td><td>$11,660</td></tr>
+                        <tr><td>VICTORIA</td><td>136</td><td>$13,390</td></tr>
+                        <tr><td>SODA INSTINTO</td><td>113</td><td>$8,259</td></tr>
+                        <tr><td>LIMONADA</td><td>108</td><td>$8,280</td></tr>
+                    </tbody>
+                </table>
+                <p class="date-info" style="margin-top:12px;">COMBO INSTINTO es el que más ingresos genera pese a no ser el más vendido — ticket unitario alto ($260 c/u). CHEESEBURGER CLÁSICA y DOBLE DOBLE son las burgers sueltas líderes.</p>
+            </div>
+
+            <div class="chart-card full-width">
+                <div class="chart-title">🧀 Cómo se piden los toppings</div>
+                <p class="date-info">
+                    Fudo captura los toppings de dos formas distintas: como <strong>modificador pegado a la burger</strong> (<code>item.subitems</code>,
+                    114 unidades — así se agregan la mayoría) o, rara vez, como <strong>producto suelto en el ticket</strong> (<code>item</code> normal,
+                    19 unidades). Sumando ambos: <strong>133 toppings en 16 días</strong>, sobre 494 tickets y 681 burgers vendidas.
+                    El código actual (<code>fudo-client.js</code>) solo trae <code>items.product</code> — para que esto se pueda automatizar
+                    en el próximo sync hay que agregar <code>items.subitems.product</code> al <code>include</code> de <code>getSales()</code>.
+                </p>
             </div>
         </div>
 
         <div class="footer">
-            <p>📊 Dashboard Instinto v1.0 | Datos en tiempo real desde Fudo POS</p>
-            <p>Próxima actualización: Lunes 15/07/2026 08:00 AM</p>
+            <p>📊 Dashboard Instinto | Datos reales desde Fudo POS (auth.fu.do + api.fu.do/v1alpha1)</p>
+            <p>Período: 1-16 julio 2026 · consulta directa a /sales con include=items.product,items.subitems.product,waiter</p>
         </div>
     </div>
 
     <script>
-        // Gráfico de Ventas Diarias
-        const dailyCtx = document.getElementById('dailySalesChart').getContext('2d');
-        new Chart(dailyCtx, {
-            type: 'line',
+        // Gráfico de Ventas por Mesero
+        const waiterCtx = document.getElementById('waiterChart').getContext('2d');
+        new Chart(waiterCtx, {
+            type: 'bar',
             data: {
-                labels: ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'],
+                labels: ['Daniela Carrillo', 'Montse', 'Sam', 'Sin asignar (delivery)'],
                 datasets: [{
-                    label: 'Ventas Diarias ($)',
-                    data: [5800, 6200, 6100, 7200, 8500, 8800, 2630],
-                    borderColor: '#FF6B35',
-                    backgroundColor: 'rgba(255, 107, 53, 0.1)',
-                    fill: true,
-                    tension: 0.4,
-                    pointRadius: 6,
-                    pointBackgroundColor: '#FF6B35',
-                    pointBorderColor: '#fff',
-                    pointBorderWidth: 2
+                    label: 'Ventas ($)',
+                    data: [69425, 61591, 44554, 54580],
+                    backgroundColor: ['#FFD700', '#C0C0C0', '#CD7F32', '#95A5A6']
                 }]
             },
             options: {
+                indexAxis: 'y',
                 responsive: true,
-                plugins: {
-                    legend: { display: false }
-                },
+                plugins: { legend: { display: false } },
                 scales: {
-                    y: {
-                        beginAtZero: true,
+                    x: {
                         ticks: {
-                            callback: function(value) {
-                                return '$' + value.toLocaleString();
-                            }
+                            callback: function(value) { return '$' + value.toLocaleString(); }
                         }
                     }
                 }
             }
         });
 
-        // Gráfico de Top 5 Productos
-        const productsCtx = document.getElementById('topProductsChart').getContext('2d');
-        new Chart(productsCtx, {
+        // Gráfico de Toppings vendidos
+        const toppingsCtx = document.getElementById('toppingsChart').getContext('2d');
+        new Chart(toppingsCtx, {
             type: 'bar',
             data: {
-                labels: ['Enchiladas', 'Tacos', 'Chiles', 'Carne Asada', 'Quesadillas'],
+                labels: ['Lenguas de tocino', 'Chicharrón de queso', 'Extra carne', 'Salsa quesos y tocino', 'Aguacate'],
                 datasets: [{
-                    label: 'Ventas ($)',
-                    data: [3400, 2850, 2700, 2940, 1800],
-                    backgroundColor: [
-                        '#FF6B35',
-                        '#004E89',
-                        '#2ECC71',
-                        '#F39C12',
-                        '#9B59B6'
-                    ]
+                    label: 'Unidades vendidas (16 días)',
+                    data: [45, 44, 20, 19, 4],
+                    backgroundColor: '#FF6B35'
                 }]
             },
             options: {
                 indexAxis: 'y',
                 responsive: true,
-                plugins: {
-                    legend: { display: false }
-                },
+                plugins: { legend: { display: false } },
                 scales: {
-                    x: {
-                        ticks: {
-                            callback: function(value) {
-                                return '$' + value.toLocaleString();
-                            }
-                        }
+                    x: { beginAtZero: true, ticks: { stepSize: 10 } }
+                }
+            }
+        });
+
+        // Gráfico de Toppings por Mesero (tasa de attach %)
+        const toppingsByWaiterCtx = document.getElementById('toppingsByWaiterChart').getContext('2d');
+        new Chart(toppingsByWaiterCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Montse', 'Daniela Carrillo', 'Sin asignar', 'Sam'],
+                datasets: [{
+                    label: '% de tickets con topping',
+                    data: [23.9, 17.6, 12.5, 11.0],
+                    backgroundColor: ['#FFD700', '#C0C0C0', '#95A5A6', '#CD7F32']
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { callback: (v) => v + '%' }
                     }
                 }
             }

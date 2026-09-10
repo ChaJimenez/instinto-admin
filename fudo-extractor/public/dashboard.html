@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Instinto — Dashboard Operativo</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --primary: #f97316;
+      --primary-dark: #ea580c;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --neutral-50: #f9fafb;
+      --neutral-100: #f3f4f6;
+      --neutral-200: #e5e7eb;
+      --neutral-300: #d1d5db;
+      --neutral-400: #9ca3af;
+      --neutral-500: #6b7280;
+      --neutral-600: #4b5563;
+      --neutral-700: #374151;
+      --neutral-800: #1f2937;
+      --neutral-900: #111827;
+      --text-primary: var(--neutral-900);
+      --text-secondary: var(--neutral-500);
+      --bg-surface: white;
+      --bg-subtle: var(--neutral-50);
+      --border-color: var(--neutral-200);
+      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+      --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --text-primary: var(--neutral-50);
+        --text-secondary: var(--neutral-400);
+        --bg-surface: var(--neutral-900);
+        --bg-subtle: var(--neutral-800);
+        --border-color: var(--neutral-700);
+        --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+        --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.3);
+        --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.4);
+      }
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+        'Ubuntu', 'Cantarell', sans-serif;
+      background: var(--bg-subtle);
+      color: var(--text-primary);
+      line-height: 1.6;
+      font-size: clamp(14px, 2vw, 16px);
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: clamp(1rem, 4vw, 2rem);
+    }
+
+    /* HEADER */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: clamp(1.5rem, 5vw, 3rem);
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .header h1 {
+      font-size: clamp(24px, 5vw, 32px);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .header .meta {
+      display: flex;
+      gap: 1.5rem;
+      align-items: center;
+      font-size: clamp(13px, 1.5vw, 14px);
+      color: var(--text-secondary);
+      flex-wrap: wrap;
+    }
+
+    .meta-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.4rem 0.8rem;
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .status-badge.live {
+      background: rgba(16, 185, 129, 0.1);
+      border-color: var(--success);
+      color: var(--success);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%,
+      100% {
+        opacity: 1;
+      }
+      50% {
+        opacity: 0.5;
+      }
+    }
+
+    /* ALERTS SECTION */
+    .alerts-section {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .alert {
+      padding: 1rem;
+      border-radius: 8px;
+      border-left: 4px solid;
+      display: flex;
+      gap: 1rem;
+    }
+
+    .alert.critical {
+      background: rgba(239, 68, 68, 0.1);
+      border-left-color: var(--danger);
+      color: var(--danger);
+    }
+
+    .alert.high {
+      background: rgba(245, 158, 11, 0.1);
+      border-left-color: var(--warning);
+      color: var(--warning);
+    }
+
+    .alert-icon {
+      flex-shrink: 0;
+      font-size: 20px;
+    }
+
+    .alert-content {
+      flex: 1;
+    }
+
+    .alert-title {
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+      font-size: 13px;
+    }
+
+    .alert-message {
+      font-size: 12px;
+      opacity: 0.8;
+      margin-bottom: 0.5rem;
+    }
+
+    .alert-action {
+      font-size: 11px;
+      font-weight: 500;
+      opacity: 0.7;
+    }
+
+    /* KPI GRID */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: clamp(1rem, 3vw, 1.5rem);
+      margin-bottom: 2rem;
+    }
+
+    .kpi-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: clamp(1rem, 3vw, 1.5rem);
+      box-shadow: var(--shadow-sm);
+      transition: box-shadow 0.2s, transform 0.2s;
+    }
+
+    .kpi-card:hover {
+      box-shadow: var(--shadow-md);
+      transform: translateY(-2px);
+    }
+
+    .kpi-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 1rem;
+    }
+
+    .kpi-title {
+      font-size: clamp(12px, 1.5vw, 13px);
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .kpi-status {
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .kpi-status.healthy {
+      background: rgba(16, 185, 129, 0.1);
+      color: var(--success);
+    }
+
+    .kpi-status.alert {
+      background: rgba(245, 158, 11, 0.1);
+      color: var(--warning);
+    }
+
+    .kpi-status.critical {
+      background: rgba(239, 68, 68, 0.1);
+      color: var(--danger);
+    }
+
+    .kpi-value {
+      font-size: clamp(28px, 6vw, 42px);
+      font-weight: 700;
+      line-height: 1;
+      margin-bottom: 0.5rem;
+      letter-spacing: -0.01em;
+    }
+
+    .kpi-unit {
+      font-size: clamp(12px, 1.5vw, 14px);
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .kpi-meta {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border-color);
+      font-size: 12px;
+    }
+
+    .meta-item-small {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .meta-label {
+      color: var(--text-secondary);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .meta-value {
+      font-weight: 600;
+      font-size: clamp(12px, 1.5vw, 14px);
+    }
+
+    .trend {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .trend.up {
+      color: var(--danger);
+    }
+
+    .trend.up::before {
+      content: '↑';
+    }
+
+    .trend.down {
+      color: var(--success);
+    }
+
+    .trend.down::before {
+      content: '↓';
+    }
+
+    /* CHART SECTION */
+    .chart-section {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: clamp(1rem, 3vw, 2rem);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .chart-title {
+      font-size: clamp(16px, 3vw, 20px);
+      font-weight: 700;
+      margin-bottom: 1.5rem;
+    }
+
+    .chart-container {
+      min-height: 300px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-subtle);
+      border-radius: 8px;
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    /* FOOTER */
+    .footer {
+      margin-top: 2rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: var(--text-secondary);
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .last-sync {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .sync-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--success);
+      animation: pulse 2s infinite;
+    }
+
+    /* RESPONSIVE */
+    @media (max-width: 768px) {
+      .kpi-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .header .meta {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
+
+    /* LOADING STATE */
+    .loading {
+      opacity: 0.6;
+      pointer-events: none;
+    }
+
+    .skeleton {
+      background: linear-gradient(
+        90deg,
+        var(--bg-subtle) 0%,
+        var(--neutral-200) 50%,
+        var(--bg-subtle) 100%
+      );
+      background-size: 200% 100%;
+      animation: loading 1.5s infinite;
+    }
+
+    @keyframes loading {
+      0% {
+        background-position: 200% 0;
+      }
+      100% {
+        background-position: -200% 0;
+      }
+    }
+
+    /* PRINT STYLES */
+    @media print {
+      body {
+        background: white;
+        color: black;
+      }
+
+      .kpi-card,
+      .chart-section {
+        page-break-inside: avoid;
+        box-shadow: none;
+        border: 1px solid #ddd;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- HEADER -->
+    <div class="header">
+      <h1>📊 Instinto — Control Operativo</h1>
+      <div class="meta">
+        <div class="meta-item">
+          <span id="period-text">Últimos 7 días</span>
+        </div>
+        <div class="meta-item">
+          <span class="status-badge live">
+            <span class="status-dot"></span>
+            En vivo
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ALERTS -->
+    <div class="alerts-section" id="alerts-container"></div>
+
+    <!-- KPIs -->
+    <div class="kpi-grid" id="kpi-container"></div>
+
+    <!-- CHART SECTION -->
+    <div class="chart-section" id="chart-container">
+      <h3 class="chart-title">Evolución 7 días</h3>
+      <div class="chart-container">
+        <p>Cargando gráfico...</p>
+      </div>
+    </div>
+
+    <!-- FOOTER -->
+    <div class="footer">
+      <div class="last-sync">
+        <span class="sync-dot"></span>
+        <span id="last-sync-text">Sincronizando datos...</span>
+      </div>
+      <div>
+        <small>© 2026 Instinto Hamburguesas</small>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    class DashboardRenderer {
+      constructor() {
+        this.data = null;
+        this.refreshInterval = 4 * 60 * 60 * 1000; // 4 horas
+        this.init();
+      }
+
+      async init() {
+        await this.fetchData();
+        this.render();
+        this.startAutoRefresh();
+      }
+
+      async fetchData() {
+        try {
+          const response = await fetch('/api/metrics');
+          this.data = await response.json();
+          this.updateLastSync();
+        } catch (error) {
+          console.error('Error fetching data:', error);
+          this.showError('No se pudo cargar los datos');
+        }
+      }
+
+      render() {
+        if (!this.data) return;
+
+        this.renderAlerts();
+        this.renderKPIs();
+        this.updatePeriodText();
+      }
+
+      renderAlerts() {
+        const container = document.getElementById('alerts-container');
+        const alerts = this.data.alerts || [];
+
+        if (alerts.length === 0) {
+          container.innerHTML = '';
+          return;
+        }
+
+        container.innerHTML = alerts
+          .map(
+            (alert) => `
+          <div class="alert ${alert.level}">
+            <div class="alert-icon">${alert.level === 'critical' ? '🚨' : '⚠️'}</div>
+            <div class="alert-content">
+              <div class="alert-title">${alert.metric}</div>
+              <div class="alert-message">${alert.message}</div>
+              <div class="alert-action">→ ${alert.action}</div>
+            </div>
+          </div>
+        `
+          )
+          .join('');
+      }
+
+      renderKPIs() {
+        const container = document.getElementById('kpi-container');
+        const { kpis, health } = this.data;
+
+        const kpiList = [
+          {
+            key: 'grossSales',
+            title: 'Ventas Brutas',
+            unit: '$',
+            format: 'currency',
+            targetMin: 5000,
+            targetMax: 20000,
+          },
+          {
+            key: 'covers',
+            title: 'Número de Órdenes',
+            unit: '',
+            format: 'number',
+            targetMin: 50,
+            targetMax: 200,
+          },
+          {
+            key: 'averageCheck',
+            title: 'Ticket Promedio',
+            unit: '$',
+            format: 'currency',
+            targetMin: 80,
+            targetMax: 150,
+          },
+          {
+            key: 'cogsPercentage',
+            title: 'Costo de Ingredientes',
+            unit: '%',
+            format: 'percent',
+            targetMin: 28,
+            targetMax: 35,
+          },
+          {
+            key: 'laborPercentage',
+            title: 'Costo de Labor',
+            unit: '%',
+            format: 'percent',
+            targetMin: 20,
+            targetMax: 28,
+          },
+          {
+            key: 'primeCostPercentage',
+            title: 'Prime Cost (CRÍTICO)',
+            unit: '%',
+            format: 'percent',
+            targetMin: 55,
+            targetMax: 65,
+          },
+        ];
+
+        container.innerHTML = kpiList
+          .map((kpi) => {
+            const value = kpis[kpi.key];
+            const healthStatus = health[kpi.key];
+            const displayValue = this.formatValue(value, kpi.format);
+            const statusClass = healthStatus?.status || 'healthy';
+
+            return `
+            <div class="kpi-card">
+              <div class="kpi-header">
+                <div class="kpi-title">${kpi.title}</div>
+                <div class="kpi-status ${statusClass}">
+                  ${statusClass === 'healthy' ? '✓' : statusClass === 'alert' ? '!' : '✕'}
+                </div>
+              </div>
+              <div class="kpi-value">${displayValue}<span class="kpi-unit">${kpi.unit}</span></div>
+              <div class="kpi-meta">
+                <div class="meta-item-small">
+                  <div class="meta-label">Mín</div>
+                  <div class="meta-value">${kpi.targetMin}${kpi.unit}</div>
+                </div>
+                <div class="meta-item-small">
+                  <div class="meta-label">Máx</div>
+                  <div class="meta-value">${kpi.targetMax}${kpi.unit}</div>
+                </div>
+              </div>
+            </div>
+          `;
+          })
+          .join('');
+      }
+
+      formatValue(value, format) {
+        switch (format) {
+          case 'currency':
+            return new Intl.NumberFormat('es-MX', {
+              style: 'currency',
+              currency: 'MXN',
+              maximumFractionDigits: 0,
+            }).format(value);
+          case 'percent':
+            return `${parseFloat(value).toFixed(1)}`;
+          case 'number':
+            return new Intl.NumberFormat('es-MX').format(value);
+          default:
+            return value;
+        }
+      }
+
+      updatePeriodText() {
+        const { period } = this.data;
+        const start = new Date(period.start);
+        const end = new Date(period.end);
+        const text = `${start.toLocaleDateString('es-MX')} - ${end.toLocaleDateString('es-MX')}`;
+        document.getElementById('period-text').textContent = text;
+      }
+
+      updateLastSync() {
+        const now = new Date();
+        const text = `Actualizado: ${now.toLocaleTimeString('es-MX')}`;
+        document.getElementById('last-sync-text').textContent = text;
+      }
+
+      startAutoRefresh() {
+        setInterval(() => this.fetchData().then(() => this.render()), this.refreshInterval);
+      }
+
+      showError(message) {
+        const container = document.getElementById('alerts-container');
+        container.innerHTML = `
+          <div class="alert critical">
+            <div class="alert-icon">❌</div>
+            <div class="alert-content">
+              <div class="alert-title">Error</div>
+              <div class="alert-message">${message}</div>
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    // Initialize dashboard cuando carga la página
+    document.addEventListener('DOMContentLoaded', () => {
+      new DashboardRenderer();
+    });
+  </script>
+</body>
+</html>

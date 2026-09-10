@@ -1,0 +1,149 @@
+const { execFile } = require('child_process');
+const { promisify } = require('util');
+const execFileAsync = promisify(execFile);
+
+/**
+ * Publica reportes de Instinto en Basecamp usando el CLI `basecamp` que ya
+ * está autenticado en esta máquina (mismo que usan los skills del ecosistema).
+ * No mantenemos un cliente HTTP/OAuth propio: reutilizamos esa sesión.
+ *
+ * Proyecto "Administración" (bucket 32427345, Message Board 6062062956) —
+ * confirmado por Carlos el 2026-09-10, reemplaza al proyecto viejo
+ * "Operaciones Instinto" (46274090). Todo lo automático va ahí ahora.
+ * Hilo fijo de cortes diarios creado a mano por Carlos:
+ * https://3.basecamp.com/5484659/buckets/32427345/messages/10289129219
+ * (id 10289129219) — updateDailyMessage() le prepende el corte del día.
+ */
+class BasecampIntegration {
+  constructor(config = {}) {
+    this.accountId = config.accountId || process.env.BASECAMP_ACCOUNT_ID;
+    this.bucketId = config.bucketId || process.env.BASECAMP_BUCKET_ID || '32427345';
+    this.messageBoardId = config.messageBoardId || process.env.BASECAMP_MESSAGE_BOARD_ID || '6062062956';
+    this.dailyMessageId = config.dailyMessageId || process.env.BASECAMP_MESSAGE_ID || '10289129219';
+  }
+
+  async run(args) {
+    const { stdout } = await execFileAsync('basecamp', [
+      ...args,
+      '--account', this.accountId,
+      '--project', this.bucketId,
+      '--json',
+    ]);
+    return JSON.parse(stdout);
+  }
+
+  /**
+   * Actualiza el mensaje mensual fijo prependiendo el corte del día.
+   * Si no hay BASECAMP_MESSAGE_ID configurado, no hace nada (evita crear
+   * mensajes duplicados por accidente).
+   */
+  async updateDailyMessage(metrics) {
+    if (!this.dailyMessageId) {
+      console.warn('⚠️  BASECAMP_MESSAGE_ID no configurado — no se actualiza Basecamp.');
+      return null;
+    }
+
+    const current = await this.run([
+      'messages', 'show', this.dailyMessageId,
+      '--message-board', this.messageBoardId,
+    ]);
+    const previousContent = current.data?.content || current.content || '';
+
+    const todayBlock = this.formatDailyBlockHTML(metrics);
+    const newContent = todayBlock + '<hr>' + previousContent;
+
+    const result = await this.run([
+      'messages', 'update', this.dailyMessageId,
+      '--message-board', this.messageBoardId,
+      '--body', newContent,
+    ]);
+
+    console.log(`✅ Corte del día agregado a Basecamp (mensaje ${this.dailyMessageId})`);
+    return result;
+  }
+
+  /**
+   * Postea un mensaje nuevo con el reporte semanal (sí queremos historial semana a semana).
+   */
+  async postWeeklyMessage(metrics, dailyBreakdown = null) {
+    const title = `Reporte Semanal — ${metrics.period.start} al ${metrics.period.end}`;
+    const body = this.formatWeeklyHTML(metrics, dailyBreakdown);
+
+    const result = await this.run([
+      'message', title, body,
+      '--message-board', this.messageBoardId,
+    ]);
+
+    console.log(`✅ Reporte semanal publicado en Basecamp: ${title}`);
+    return result;
+  }
+
+  formatDailyBlockHTML(metrics) {
+    const { kpis, period } = metrics;
+    const cogsLine = kpis.cogsPercentage === null
+      ? '<em>COGS: sin datos de costo cargados en Fudo</em>'
+      : `COGS: ${kpis.cogsPercentage}%`;
+
+    return `
+      <p><strong>📅 ${period.end}</strong></p>
+      <p>Ventas: $${kpis.grossSales.toLocaleString('es-MX')} · Tickets: ${kpis.covers} · Ticket promedio: $${kpis.averageCheck}</p>
+      <p>${cogsLine}</p>
+    `;
+  }
+
+  formatWeeklyHTML(metrics, dailyBreakdown = null) {
+    const { kpis, health, alerts, period } = metrics;
+
+    let dailyHTML = '';
+    if (dailyBreakdown && dailyBreakdown.length > 0) {
+      const rows = dailyBreakdown.map((d) => `
+        <tr>
+          <td>${d.date}</td>
+          <td>$${d.grossSales.toLocaleString('es-MX')}</td>
+          <td>${d.covers}</td>
+          <td>$${d.avgTicket}</td>
+        </tr>
+      `).join('');
+
+      dailyHTML = `
+        <p><strong>Ventas por día:</strong></p>
+        <table>
+          <thead><tr><th>Día</th><th>Ventas</th><th>Tickets</th><th>Ticket promedio</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+        <hr>
+      `;
+    }
+
+    let alertsHTML = '';
+    if (alerts.length > 0) {
+      alertsHTML = `
+        <p><strong style="color:#ef4444;">⚠️ Alertas:</strong></p>
+        <ul>${alerts.map((a) => `<li><strong>${a.metric}:</strong> ${a.message} → ${a.action}</li>`).join('')}</ul>
+      `;
+    }
+
+    const cogsText = kpis.cogsPercentage === null
+      ? 'sin datos (falta cargar costo por producto en Fudo)'
+      : `${kpis.cogsPercentage}% (target 28-35%) ${health.cogsPercentage?.status === 'healthy' ? '✓' : '⚠️'}`;
+
+    const laborText = kpis.laborPercentage === null
+      ? 'sin datos (falta costo de nómina del período)'
+      : `${kpis.laborPercentage}% (target 20-28%) ${health.laborPercentage?.status === 'healthy' ? '✓' : '⚠️'}`;
+
+    return `
+      <h3>📊 Reporte Instinto — ${period.start} al ${period.end}</h3>
+      <p><strong>Ventas Brutas:</strong> $${kpis.grossSales.toLocaleString('es-MX')}</p>
+      <p><strong>Número de Tickets:</strong> ${kpis.covers}</p>
+      <p><strong>Ticket Promedio:</strong> $${kpis.averageCheck}</p>
+      <hr>
+      ${dailyHTML}
+      <p><strong>COGS %:</strong> ${cogsText}</p>
+      <p><strong>Labor %:</strong> ${laborText}</p>
+      ${alertsHTML}
+      <p><small>Generado automáticamente por Instinto POS Dashboard</small></p>
+    `;
+  }
+}
+
+module.exports = BasecampIntegration;
