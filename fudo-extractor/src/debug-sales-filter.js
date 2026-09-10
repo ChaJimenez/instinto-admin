@@ -23,7 +23,7 @@ async function main() {
   const localStart = fudo.formatDate(target);
   const localEnd = fudo.formatDate(target);
   const queryStart = fudo.formatDate(new Date(target.getTime() - 24 * 60 * 60 * 1000));
-  const queryEnd = fudo.formatDate(new Date(target.getTime() + 24 * 60 * 60 * 1000));
+  const queryEnd = fudo.formatDate(new Date(target.getTime() + 48 * 60 * 60 * 1000)); // ver comentario en fudo-client.getSales() sobre por qué +2 días
 
   console.log('Target local day:', localStart);
   console.log('Query window (server filter):', queryStart, '->', queryEnd);

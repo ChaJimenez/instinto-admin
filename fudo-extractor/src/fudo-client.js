@@ -129,16 +129,25 @@ class FudoClient {
    *
    * Fudo filtra por día calendario en UTC, pero el día de negocio de Instinto
    * es CDMX (UTC-6) — las ventas después de ~18:00 hora local ya caen del lado
-   * de "mañana" en UTC. Por eso pedimos un día de colchón de cada lado del
-   * rango y luego filtramos con precisión por el día calendario CDMX real de
-   * cada venta (closedAt/createdAt), en vez de confiar en el filtro del servidor.
+   * de "mañana" en UTC. Por eso pedimos colchón de cada lado del rango y luego
+   * filtramos con precisión por el día calendario CDMX real de cada venta
+   * (closedAt/createdAt), en vez de confiar en el filtro del servidor.
+   *
+   * OJO: Fudo trata `lte.YYYY-MM-DD` como `<= YYYY-MM-DDT00:00:00Z` (el INICIO
+   * de ese día, no el final). Un colchón de +1 día en `queryEnd` solo cubre
+   * hasta las 00:00 UTC del día siguiente — pero las ventas CDMX de la tarde/
+   * noche (después de ~18:00 local) caen entre las 00:00 y 06:00 UTC del día
+   * SIGUIENTE. Con +1 día esas ventas ni siquiera las devuelve la API (no es
+   * que el filtro del cliente las descarte). Confirmado con datos reales del
+   * 9 de sept: con +1 día se perdían las 9 ventas después de las 18:24 CDMX.
+   * Por eso el colchón de `queryEnd` es de +2 días, no +1.
    */
   async getSales(startDate = new Date(), endDate = new Date()) {
     const localStart = this.formatDate(startDate);
     const localEnd = this.formatDate(endDate);
 
     const queryStart = this.formatDate(new Date(startDate.getTime() - 24 * 60 * 60 * 1000));
-    const queryEnd = this.formatDate(new Date(endDate.getTime() + 24 * 60 * 60 * 1000));
+    const queryEnd = this.formatDate(new Date(endDate.getTime() + 48 * 60 * 60 * 1000));
     const filter = encodeURIComponent(`and(gte.${queryStart},lte.${queryEnd})`);
     const path = `/sales?filter[createdAt]=${filter}&include=items.product,waiter,payments,tips`;
 
