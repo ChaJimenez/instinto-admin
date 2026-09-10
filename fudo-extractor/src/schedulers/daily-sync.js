@@ -47,6 +47,10 @@ async function syncDailyData() {
     const channelPerformance = FudoClient.calculateChannelMetrics(sales);
     const salesByHour = fudo.calculateSalesByHour(sales);
     const tipsTotal = sales.reduce((sum, s) => sum + (s.tips || 0), 0);
+    // `sales.length` (= metrics.kpis.covers) es conteo de ÓRDENES, no de
+    // comensales — Fudo mismo distingue "Ventas: 18" de "Personas: 31" en su
+    // propia UI. sale.people ya viene normalizado en fudo-client, sin usar hasta ahora.
+    const peopleTotal = sales.reduce((sum, s) => sum + (s.people || 0), 0);
 
     const dailyData = {
       date: fudo.formatDate(businessDate),
@@ -57,6 +61,7 @@ async function syncDailyData() {
       channelPerformance,
       salesByHour,
       tipsTotal,
+      peopleTotal,
     };
 
     const filename = `daily-${fudo.formatDate(businessDate)}.json`;
@@ -76,6 +81,7 @@ async function syncDailyData() {
       channelPerformance,
       salesByHour,
       tipsTotal,
+      peopleTotal,
       previousDay,
     });
 

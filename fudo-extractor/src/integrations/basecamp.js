@@ -144,7 +144,7 @@ class BasecampIntegration {
 
   formatDailyBlockHTML(metrics, extra = {}) {
     const { kpis, period } = metrics;
-    const { topProducts = [], waiterPerformance = [], channelPerformance = [], salesByHour = [], tipsTotal = 0, previousDay = null } = extra;
+    const { topProducts = [], waiterPerformance = [], channelPerformance = [], salesByHour = [], tipsTotal = 0, peopleTotal = 0, previousDay = null } = extra;
 
     const cogsLine = kpis.cogsPercentage === null
       ? '<em>COGS: sin datos de costo cargados en Fudo</em>'
@@ -176,7 +176,10 @@ class BasecampIntegration {
     let waiterHTML = '';
     if (waiterPerformance.length > 0) {
       const rows = waiterPerformance
-        .map((w) => `<li>${w.name}: ${w.tickets} tickets · $${w.totalSales.toLocaleString('es-MX')} · promedio $${w.avgTicket.toFixed(2)}</li>`)
+        .map((w) => {
+          const cancelText = w.cancelRate > 0 ? ` · cancelaciones ${w.cancelRate}%` : '';
+          return `<li>${w.name}: ${w.tickets} tickets · $${w.totalSales.toLocaleString('es-MX')} · promedio $${w.avgTicket.toFixed(2)}${cancelText}</li>`;
+        })
         .join('');
       waiterHTML = `<p><strong>Por mesero:</strong></p><ul>${rows}</ul>`;
     }
@@ -193,12 +196,17 @@ class BasecampIntegration {
     }
 
     const tipsLine = tipsTotal > 0 ? `<p>Propinas: $${tipsTotal.toLocaleString('es-MX')}</p>` : '';
+    // Tickets = conteo de órdenes; Personas = comensales reales (sale.people).
+    // No son lo mismo — Fudo mismo los distingue en su propia UI.
+    const peopleText = peopleTotal > 0 ? ` · Personas: ${peopleTotal}` : '';
+    const revpashLine = kpis.revpash ? `<p><small>RevPASH: $${kpis.revpash}</small></p>` : '';
 
     return `
       <p><strong>📅 ${period.end}</strong></p>
-      <p>Ventas: $${kpis.grossSales.toLocaleString('es-MX')} · Tickets: ${kpis.covers} · Ticket promedio: $${kpis.averageCheck}</p>
+      <p>Ventas: $${kpis.grossSales.toLocaleString('es-MX')} · Tickets: ${kpis.covers}${peopleText} · Ticket promedio: $${kpis.averageCheck}</p>
       ${comparisonLine}
       <p>${cogsLine}</p>
+      ${revpashLine}
       ${tipsLine}
       ${hourHTML}
       ${productsHTML}

@@ -291,6 +291,11 @@ class FudoClient {
    * Uber no tienen mesero por diseño (no es un dato faltante) y no tiene
    * sentido rankearlas junto a personas. Esas se reportan aparte con
    * calculateChannelMetrics().
+   *
+   * `cancelRate`: % de líneas de venta (items) canceladas del total pedido por
+   * ese mesero — usa item.canceled, ya normalizado en normalizeItem().
+   * `people`: suma de sale.people (comensales reales), para no confundir con
+   * `tickets` (conteo de órdenes) — Fudo mismo distingue "Ventas" de "Personas".
    */
   static calculateWaiterMetrics(sales) {
     const map = {};
@@ -299,15 +304,30 @@ class FudoClient {
       if (!sale.waiterId) return;
       const key = sale.waiterId;
       if (!map[key]) {
-        map[key] = { name: sale.waiterName, tickets: 0, totalSales: 0, tips: 0 };
+        map[key] = { name: sale.waiterName, tickets: 0, totalSales: 0, tips: 0, people: 0, itemsSold: 0, itemsCanceled: 0 };
       }
       map[key].tickets += 1;
       map[key].totalSales += sale.total;
       map[key].tips += sale.tips;
+      map[key].people += sale.people || 0;
+      sale.items.forEach((item) => {
+        if (item.canceled) {
+          map[key].itemsCanceled += 1;
+        } else {
+          map[key].itemsSold += 1;
+        }
+      });
     });
 
     return Object.values(map)
-      .map((w) => ({ ...w, avgTicket: w.tickets > 0 ? (w.totalSales / w.tickets) : 0 }))
+      .map((w) => {
+        const itemsTotal = w.itemsSold + w.itemsCanceled;
+        return {
+          ...w,
+          avgTicket: w.tickets > 0 ? (w.totalSales / w.tickets) : 0,
+          cancelRate: itemsTotal > 0 ? Number(((w.itemsCanceled / itemsTotal) * 100).toFixed(1)) : 0,
+        };
+      })
       .sort((a, b) => b.totalSales - a.totalSales);
   }
 
