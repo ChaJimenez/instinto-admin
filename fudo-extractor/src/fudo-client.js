@@ -149,7 +149,7 @@ class FudoClient {
     const queryStart = this.formatDate(new Date(startDate.getTime() - 24 * 60 * 60 * 1000));
     const queryEnd = this.formatDate(new Date(endDate.getTime() + 48 * 60 * 60 * 1000));
     const filter = encodeURIComponent(`and(gte.${queryStart},lte.${queryEnd})`);
-    const path = `/sales?filter[createdAt]=${filter}&include=items.product,waiter,payments,tips`;
+    const path = `/sales?filter[createdAt]=${filter}&include=items.product,items.subitems.product,waiter,payments,tips`;
 
     const { data, included } = await this.fetchAllPages(path);
     const sales = data.map((sale) => this.normalizeSale(sale, included));
@@ -199,6 +199,12 @@ class FudoClient {
     const productRef = item.relationships?.product?.data;
     const product = FudoClient.findIncluded(included, productRef);
 
+    const subitemRefs = item.relationships?.subitems?.data || [];
+    const subitems = subitemRefs
+      .map((ref) => FudoClient.findIncluded(included, ref))
+      .filter(Boolean)
+      .map((sub) => this.normalizeSubitem(sub, included));
+
     return {
       id: item.id,
       productId: product?.id || null,
@@ -207,6 +213,30 @@ class FudoClient {
       quantity: attrs.quantity || 1,
       cost: product?.attributes?.cost ?? null,
       canceled: !!attrs.canceled,
+      subitems,
+    };
+  }
+
+  /**
+   * Un "subitem" es un modificador/topping vendido dentro de una línea de
+   * venta. Confirmado con datos reales (2026-09-10): no existe ninguna
+   * relación ni endpoint llamado "modifier" en Fudo (/modifiers,
+   * /modifierGroups, etc. dan 404) — los toppings viven como su propio
+   * recurso `Subitem`, con `product` (el topping tiene precio propio en el
+   * catálogo, ej. "Salsa de quesos y tocino" $45) y `productModifiersGroup`
+   * (a qué grupo de modificadores del platillo pertenece, sin usar aquí).
+   */
+  normalizeSubitem(sub, included) {
+    const attrs = sub.attributes || {};
+    const productRef = sub.relationships?.product?.data;
+    const product = FudoClient.findIncluded(included, productRef);
+
+    return {
+      id: sub.id,
+      productId: product?.id || null,
+      productName: product?.attributes?.name || 'Modificador desconocido',
+      price: attrs.price || 0,
+      quantity: attrs.quantity || 1,
     };
   }
 
@@ -329,6 +359,44 @@ class FudoClient {
         };
       })
       .sort((a, b) => b.totalSales - a.totalSales);
+  }
+
+  /**
+   * Attachment rate de toppings/extras por mesero: de los tickets con
+   * mesero real asignado, qué % llevó al menos un topping (subitem), y
+   * cuánto ingreso generaron esos toppings. Cruza sale.waiterId con los
+   * `subitems` ya normalizados en normalizeItem() — ignora items cancelados
+   * (un topping en una línea cancelada no cuenta como venta real).
+   */
+  static calculateToppingsByWaiter(sales) {
+    const map = {};
+
+    sales.forEach((sale) => {
+      if (!sale.waiterId) return;
+      const key = sale.waiterId;
+      if (!map[key]) {
+        map[key] = { name: sale.waiterName, tickets: 0, ticketsWithTopping: 0, toppingsRevenue: 0, toppingsQty: 0 };
+      }
+      map[key].tickets += 1;
+
+      let saleHasTopping = false;
+      sale.items.forEach((item) => {
+        if (item.canceled) return;
+        (item.subitems || []).forEach((sub) => {
+          saleHasTopping = true;
+          map[key].toppingsRevenue += sub.price;
+          map[key].toppingsQty += sub.quantity;
+        });
+      });
+      if (saleHasTopping) map[key].ticketsWithTopping += 1;
+    });
+
+    return Object.values(map)
+      .map((w) => ({
+        ...w,
+        attachmentRate: w.tickets > 0 ? Number(((w.ticketsWithTopping / w.tickets) * 100).toFixed(1)) : 0,
+      }))
+      .sort((a, b) => b.toppingsRevenue - a.toppingsRevenue);
   }
 
   /**

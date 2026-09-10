@@ -144,7 +144,7 @@ class BasecampIntegration {
 
   formatDailyBlockHTML(metrics, extra = {}) {
     const { kpis, period } = metrics;
-    const { topProducts = [], waiterPerformance = [], channelPerformance = [], salesByHour = [], tipsTotal = 0, peopleTotal = 0, previousDay = null } = extra;
+    const { topProducts = [], waiterPerformance = [], channelPerformance = [], toppingsByWaiter = [], salesByHour = [], tipsTotal = 0, peopleTotal = 0, previousDay = null } = extra;
 
     const cogsLine = kpis.cogsPercentage === null
       ? '<em>COGS: sin datos de costo cargados en Fudo</em>'
@@ -195,6 +195,20 @@ class BasecampIntegration {
       channelHTML = `<p><strong>Ventas sin mesero (por canal):</strong></p><ul>${rows}</ul>`;
     }
 
+    // Toppings/extras vendidos como "subitem" en Fudo (no hay concepto de
+    // "modificador" expuesto por la API) — attachment rate: % de tickets de
+    // ese mesero que llevaron al menos un topping.
+    let toppingsHTML = '';
+    if (toppingsByWaiter.length > 0) {
+      const rows = toppingsByWaiter
+        .filter((w) => w.toppingsQty > 0)
+        .map((w) => `<li>${w.name}: ${w.attachmentRate}% de tickets con extra · ${w.toppingsQty} extra(s) · $${w.toppingsRevenue.toLocaleString('es-MX')}</li>`)
+        .join('');
+      if (rows) {
+        toppingsHTML = `<p><strong>Toppings/extras por mesero:</strong></p><ul>${rows}</ul>`;
+      }
+    }
+
     const tipsLine = tipsTotal > 0 ? `<p>Propinas: $${tipsTotal.toLocaleString('es-MX')}</p>` : '';
     // Tickets = conteo de órdenes; Personas = comensales reales (sale.people).
     // No son lo mismo — Fudo mismo los distingue en su propia UI.
@@ -211,6 +225,7 @@ class BasecampIntegration {
       ${hourHTML}
       ${productsHTML}
       ${waiterHTML}
+      ${toppingsHTML}
       ${channelHTML}
     `;
   }

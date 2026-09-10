@@ -45,6 +45,7 @@ async function syncDailyData() {
     const topProducts = getTopProducts(sales, 5);
     const waiterPerformance = FudoClient.calculateWaiterMetrics(sales);
     const channelPerformance = FudoClient.calculateChannelMetrics(sales);
+    const toppingsByWaiter = FudoClient.calculateToppingsByWaiter(sales);
     const salesByHour = fudo.calculateSalesByHour(sales);
     const tipsTotal = sales.reduce((sum, s) => sum + (s.tips || 0), 0);
     // `sales.length` (= metrics.kpis.covers) es conteo de ÓRDENES, no de
@@ -59,6 +60,7 @@ async function syncDailyData() {
       topProducts,
       waiterPerformance,
       channelPerformance,
+      toppingsByWaiter,
       salesByHour,
       tipsTotal,
       peopleTotal,
@@ -79,6 +81,7 @@ async function syncDailyData() {
       topProducts,
       waiterPerformance,
       channelPerformance,
+      toppingsByWaiter,
       salesByHour,
       tipsTotal,
       peopleTotal,
