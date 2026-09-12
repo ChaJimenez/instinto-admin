@@ -27,11 +27,18 @@ if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
 
-async function syncDailyData() {
+async function syncDailyData(dateOverride) {
   console.log(`\n📅 Sincronización diaria de Fudo [${new Date().toISOString()}]`);
 
   try {
-    const businessDate = new Date(Date.now() - 24 * 60 * 60 * 1000); // día anterior completo
+    // Sin `dateOverride` (uso normal del cron): siempre el día anterior
+    // completo. Con `dateOverride` ('YYYY-MM-DD'): permite rellenar a mano
+    // un corte de un día pasado que se haya saltado (ej. Cha no corrió
+    // `npm run daily:now` ese día). Se parsea a mediodía UTC para no caer
+    // en el día equivocado por zona horaria al construir el Date.
+    const businessDate = dateOverride
+      ? new Date(`${dateOverride}T12:00:00Z`)
+      : new Date(Date.now() - 24 * 60 * 60 * 1000); // día anterior completo
     const sales = await fudo.getSales(businessDate, businessDate);
     const cogsResult = fudo.calculateCOGS(sales);
 
