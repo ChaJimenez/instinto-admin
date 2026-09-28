@@ -300,6 +300,159 @@ class FudoClient {
   }
 
   /**
+   * Gastos (Compras/Facturas), sección "Expenses" de Fudo
+   * (https://app-v2.fu.do/app/#!/expenses). Cada gasto es la nota/factura que
+   * se captura al recibir mercancía de un proveedor, y según Carlos "de
+   * inmediato tiene que afectar el inventario" — o sea, el registro de la
+   * entrega física de materia prima vive aquí, no en /ingredients.
+   * Endpoint confirmado por spec OpenAPI (api-evangelist/fudo): GET /expenses,
+   * filtro por fecha de negocio (no timestamp) `filter[date]=and(gte,lte)`.
+   * `commercialDocument.docUrl` es el archivo de la factura/nota adjuntada en
+   * Fudo — clave para conciliar contra el PDF que llega por correo.
+   */
+  async getExpenses(startDate = new Date(), endDate = new Date()) {
+    const start = this.formatDate(startDate);
+    const end = this.formatDate(endDate);
+    const filter = encodeURIComponent(`and(gte.${start},lte.${end})`);
+    const include = [
+      'provider',
+      'expenseCategory',
+      'expenseItems.product',
+      'expenseItems.product.unit',
+      'expenseItems.ingredient',
+      'expenseItems.ingredient.unit',
+      'payments.paymentMethod',
+      'commercialDocument',
+      'receiptType',
+    ].join(',');
+    const path = `/expenses?filter[date]=${filter}&include=${include}`;
+
+    const { data, included } = await this.fetchAllPages(path);
+    return data.map((expense) => this.normalizeExpense(expense, included));
+  }
+
+  normalizeExpense(expense, included) {
+    const attrs = expense.attributes || {};
+    const rel = expense.relationships || {};
+
+    const provider = FudoClient.findIncluded(included, rel.provider?.data);
+    const category = FudoClient.findIncluded(included, rel.expenseCategory?.data);
+    const receiptType = FudoClient.findIncluded(included, rel.receiptType?.data);
+    const commercialDocument = FudoClient.findIncluded(included, rel.commercialDocument?.data);
+
+    const itemRefs = rel.expenseItems?.data || [];
+    const items = itemRefs
+      .map((ref) => FudoClient.findIncluded(included, ref))
+      .filter(Boolean)
+      .map((item) => this.normalizeExpenseItem(item, included));
+
+    const paymentRefs = rel.payments?.data || [];
+    const payments = paymentRefs
+      .map((ref) => FudoClient.findIncluded(included, ref))
+      .filter(Boolean)
+      .map((p) => ({
+        amount: p.attributes?.amount || 0,
+        canceled: !!p.attributes?.canceled,
+        paymentMethodName:
+          FudoClient.findIncluded(included, p.relationships?.paymentMethod?.data)?.attributes?.name || null,
+      }));
+
+    return {
+      id: expense.id,
+      date: attrs.date,
+      amount: attrs.amount || 0,
+      status: attrs.status || null, // PAID | UNPAID
+      canceled: !!attrs.canceled,
+      description: attrs.description || null,
+      receiptNumber: attrs.receiptNumber || null,
+      dueDate: attrs.dueDate || null,
+      paymentDate: attrs.paymentDate || null,
+      providerId: provider?.id || null,
+      providerName: provider?.attributes?.name || 'Sin proveedor',
+      categoryName: category?.attributes?.name || 'Sin categoría',
+      financialCategory: category?.attributes?.financialCategory || null, // ADMINISTRATIVE-EXPENSES | OPERATIONAL-EXPENSES | GOODS-PURCHASES
+      receiptTypeName: receiptType?.attributes?.name || null,
+      hasInvoiceDoc: !!commercialDocument,
+      invoiceUrl: commercialDocument?.attributes?.docUrl || null,
+      items,
+      payments,
+    };
+  }
+
+  normalizeExpenseItem(item, included) {
+    const attrs = item.attributes || {};
+    const productRef = item.relationships?.product?.data;
+    const ingredientRef = item.relationships?.ingredient?.data;
+    const product = FudoClient.findIncluded(included, productRef);
+    const ingredient = FudoClient.findIncluded(included, ingredientRef);
+
+    return {
+      id: item.id,
+      detail: attrs.detail || null,
+      price: attrs.price || 0,
+      quantity: attrs.quantity || 1,
+      canceled: !!attrs.canceled,
+      productId: product?.id || null,
+      productName: product?.attributes?.name || null,
+      ingredientId: ingredient?.id || null,
+      ingredientName: ingredient?.attributes?.name || null,
+      // Nombre "efectivo" de la línea: una línea de gasto compra un producto
+      // o un insumo (ingredient), no ambos — para mostrar en reportes sin
+      // tener que revisar cuál de los dos vino cargado.
+      itemName: ingredient?.attributes?.name || product?.attributes?.name || attrs.detail || 'Sin nombre',
+    };
+  }
+
+  /**
+   * Organiza los gastos de un período para el corte semanal de los lunes:
+   * separa materia prima (GOODS-PURCHASES, ej. pan/carne/pollo) del resto,
+   * agrupa por proveedor, y señala lo que necesita atención humana:
+   * gastos sin factura adjunta en Fudo, y gastos vencidos sin pagar.
+   * No intenta "resolver" nada solo, expone las señales para que alguien decida.
+   */
+  static organizeExpenses(expenses, today = new Date()) {
+    const active = expenses.filter((e) => !e.canceled);
+    const rawMaterials = active.filter((e) => e.financialCategory === 'GOODS-PURCHASES');
+    const other = active.filter((e) => e.financialCategory !== 'GOODS-PURCHASES');
+
+    const byProvider = (list) => {
+      const map = {};
+      list.forEach((e) => {
+        const key = e.providerName;
+        if (!map[key]) map[key] = { providerName: key, count: 0, total: 0, expenses: [] };
+        map[key].count += 1;
+        map[key].total += e.amount;
+        map[key].expenses.push(e);
+      });
+      return Object.values(map).sort((a, b) => b.total - a.total);
+    };
+
+    const todayStr = today.toLocaleDateString('en-CA', { timeZone: 'America/Mexico_City' });
+    const missingInvoice = active.filter((e) => !e.hasInvoiceDoc);
+    const overdueUnpaid = active.filter(
+      (e) => e.status === 'UNPAID' && e.dueDate && e.dueDate < todayStr
+    );
+
+    return {
+      totalAmount: active.reduce((sum, e) => sum + e.amount, 0),
+      rawMaterials: {
+        total: rawMaterials.reduce((sum, e) => sum + e.amount, 0),
+        count: rawMaterials.length,
+        byProvider: byProvider(rawMaterials),
+      },
+      otherExpenses: {
+        total: other.reduce((sum, e) => sum + e.amount, 0),
+        count: other.length,
+        byProvider: byProvider(other),
+      },
+      alerts: {
+        missingInvoice,
+        overdueUnpaid,
+      },
+    };
+  }
+
+  /**
    * Empleados/usuarios. En Fudo se llaman "users", no "employees".
    * Endpoint confirmado: GET /users
    */

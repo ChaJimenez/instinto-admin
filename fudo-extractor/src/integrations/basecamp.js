@@ -129,9 +129,9 @@ class BasecampIntegration {
   /**
    * Postea un mensaje nuevo con el reporte semanal (sí queremos historial semana a semana).
    */
-  async postWeeklyMessage(metrics, dailyBreakdown = null) {
+  async postWeeklyMessage(metrics, dailyBreakdown = null, expensesReport = null) {
     const title = `Reporte Semanal — ${metrics.period.start} al ${metrics.period.end}`;
-    const body = this.formatWeeklyHTML(metrics, dailyBreakdown);
+    const body = this.formatWeeklyHTML(metrics, dailyBreakdown, expensesReport);
 
     const result = await this.run([
       'message', title, body,
@@ -250,7 +250,46 @@ class BasecampIntegration {
     return `<p><small>vs. ${previousDay.date}: <span style="color:${color(deltaSales)};">${arrow(deltaSales)} ${Math.abs(deltaSales).toFixed(1)}%</span> en ventas${coversText}</small></p>`;
   }
 
-  formatWeeklyHTML(metrics, dailyBreakdown = null) {
+  /**
+   * Sección de gastos (compras a proveedores/materia prima) del reporte
+   * semanal, a partir de FudoClient.organizeExpenses(). Prioriza las alertas
+   * (sin factura adjunta, vencidos sin pagar) sobre los totales — son lo que
+   * requiere acción el lunes, no solo información.
+   */
+  formatExpensesHTML(expensesReport) {
+    if (!expensesReport) return '';
+    const { rawMaterials, otherExpenses, alerts } = expensesReport;
+
+    const providerRows = (byProvider) =>
+      byProvider
+        .map((p) => `<li>${p.providerName}: $${p.total.toLocaleString('es-MX')} (${p.count} factura${p.count === 1 ? '' : 's'})</li>`)
+        .join('');
+
+    let html = `<h3>🧾 Gastos de la semana</h3>`;
+    html += `<p><strong>Materia prima (pan, carne, pollo, etc.):</strong> $${rawMaterials.total.toLocaleString('es-MX')} · ${rawMaterials.count} factura(s)</p>`;
+    if (rawMaterials.byProvider.length > 0) {
+      html += `<ul>${providerRows(rawMaterials.byProvider)}</ul>`;
+    }
+    html += `<p><strong>Otros gastos (admin/operativos):</strong> $${otherExpenses.total.toLocaleString('es-MX')} · ${otherExpenses.count} factura(s)</p>`;
+
+    if (alerts.missingInvoice.length > 0) {
+      const rows = alerts.missingInvoice
+        .map((e) => `<li>${e.date} · ${e.providerName} · $${e.amount.toLocaleString('es-MX')}${e.description ? ` — ${e.description}` : ''}</li>`)
+        .join('');
+      html += `<p style="color:#f59e0b;"><strong>🟡 Sin factura/nota adjunta en Fudo (${alerts.missingInvoice.length}):</strong></p><ul>${rows}</ul>`;
+    }
+
+    if (alerts.overdueUnpaid.length > 0) {
+      const rows = alerts.overdueUnpaid
+        .map((e) => `<li>${e.providerName} · $${e.amount.toLocaleString('es-MX')} · vencía ${e.dueDate}</li>`)
+        .join('');
+      html += `<p style="color:#ef4444;"><strong>🔴 Vencidos sin pagar (${alerts.overdueUnpaid.length}):</strong></p><ul>${rows}</ul>`;
+    }
+
+    return html;
+  }
+
+  formatWeeklyHTML(metrics, dailyBreakdown = null, expensesReport = null) {
     const { kpis, health, alerts, period } = metrics;
 
     let dailyHTML = '';
@@ -300,6 +339,8 @@ class BasecampIntegration {
       <p><strong>COGS %:</strong> ${cogsText}</p>
       <p><strong>Labor %:</strong> ${laborText}</p>
       ${alertsHTML}
+      <hr>
+      ${this.formatExpensesHTML(expensesReport)}
       <p><small>Generado automáticamente por Instinto POS Dashboard</small></p>
     `;
   }

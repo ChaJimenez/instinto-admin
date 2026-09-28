@@ -39,6 +39,8 @@ async function generateWeeklyReport(rangeStart = null, rangeEnd = null) {
 
     const sales = await fudo.getSales(start, end);
     const cogsResult = fudo.calculateCOGS(sales);
+    const expenses = await fudo.getExpenses(start, end);
+    const expensesReport = FudoClient.organizeExpenses(expenses);
 
     const period = { start: fudo.formatDate(start), end: fudo.formatDate(end) };
     const manualLaborCost = process.env.WEEKLY_LABOR_COST
@@ -56,6 +58,7 @@ async function generateWeeklyReport(rangeStart = null, rangeEnd = null) {
       topProducts: getTopProducts(sales, 10),
       waiterRanking: FudoClient.calculateWaiterMetrics(sales),
       salesChannels: analyzeSalesChannels(sales),
+      expenses: expensesReport,
     };
 
     const filename = `weekly-report-${period.start}-a-${period.end}.json`;
@@ -75,8 +78,17 @@ async function generateWeeklyReport(rangeStart = null, rangeEnd = null) {
     console.log(`   🎫 Ticket promedio: $${metrics.kpis.averageCheck}`);
     console.log(`   📈 Tickets/día: ${(metrics.kpis.covers / daysInRange).toFixed(1)}`);
     console.log(`   📦 COGS: ${metrics.kpis.cogsPercentage === null ? 'sin datos' : metrics.kpis.cogsPercentage + '%'}`);
+    console.log(`\n🧾 Gastos de la semana:`);
+    console.log(`   Materia prima: $${expensesReport.rawMaterials.total.toFixed(2)} (${expensesReport.rawMaterials.count} facturas)`);
+    console.log(`   Otros gastos: $${expensesReport.otherExpenses.total.toFixed(2)} (${expensesReport.otherExpenses.count} facturas)`);
+    if (expensesReport.alerts.missingInvoice.length > 0) {
+      console.log(`   ⚠️  ${expensesReport.alerts.missingInvoice.length} gasto(s) sin factura/nota adjunta en Fudo`);
+    }
+    if (expensesReport.alerts.overdueUnpaid.length > 0) {
+      console.log(`   🔴 ${expensesReport.alerts.overdueUnpaid.length} gasto(s) vencido(s) sin pagar`);
+    }
 
-    await basecamp.postWeeklyMessage(metrics, weeklyReport.dailyBreakdown);
+    await basecamp.postWeeklyMessage(metrics, weeklyReport.dailyBreakdown, expensesReport);
     await googleDrive.uploadReport(weeklyReport, filename);
 
     return weeklyReport;

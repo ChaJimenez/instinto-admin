@@ -96,6 +96,9 @@ Se ejecutará cada **lunes a las 08:00 AM**.
 - Análisis de productos rentables vs. con pérdida
 - Análisis restaurant vs. domicilios
 - Ranking de meseros
+- **Gastos** (módulo Expenses de Fudo): materia prima vs. otros gastos, por
+  proveedor, con alertas de facturas sin adjuntar y vencidos sin pagar
+  (ver `RECONCILIACION-FACTURAS.md`)
 
 ## 📁 Estructura de Datos
 
