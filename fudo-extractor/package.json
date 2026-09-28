@@ -10,7 +10,8 @@
     "daily": "node src/schedulers/daily-sync.js",
     "daily:now": "node src/run-daily-sync-now.js",
     "weekly": "node src/schedulers/weekly-report.js",
-    "test": "node src/test-fudo.js"
+    "test": "node src/test-fudo.js",
+    "discover:purchases": "node src/discover-purchases.js"
   },
   "dependencies": {
     "axios": "^1.6.0",
