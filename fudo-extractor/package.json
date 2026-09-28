@@ -14,7 +14,8 @@
     "discover:purchases": "node src/discover-purchases.js",
     "discover:expenses": "node src/discover-expenses-detail.js",
     "discover:expense-items": "node src/discover-expense-items.js",
-    "discover:expense-item-attrs": "node src/discover-expense-item-attrs.js"
+    "discover:expense-item-attrs": "node src/discover-expense-item-attrs.js",
+    "discover:stock-movements": "node src/discover-stock-movements.js"
   },
   "dependencies": {
     "axios": "^1.6.0",
