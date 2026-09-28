@@ -83,19 +83,35 @@ ventana de 7 días:
    - Montos que no cuadran entre correo y Fudo con mismo folio → posible
      error de captura, se reporta con el detalle de ambos montos.
 
-### Fuente de correos
-Ya hay acceso a Gmail conectado en esta sesión. Dos formas de localizar las
-facturas, de más a menos confiable:
-- **Lista de remitentes conocidos por proveedor** (la más confiable —
-  evita falsos positivos de correos que no son facturas). Requiere que
-  Carlos confirme el correo de facturación de cada proveedor recurrente.
-- Búsqueda por palabras clave (`factura`, `CFDI`, `nota de remisión`) +
-  adjunto PDF/XML, como respaldo para proveedores no mapeados.
+### Fuente de correos: Basecamp Forwards, no Gmail
+Confirmado por Carlos: los correos de facturas llegan **reenviados a la
+herramienta "Forwards" de Basecamp** (no a Gmail) — es lo que revisa todos
+los días. El plan original de leer Gmail directamente no aplica; hay que
+leer los Forwards del proyecto correspondiente vía el CLI `basecamp` (el
+mismo que ya usa `src/integrations/basecamp.js`, autenticado en la máquina
+de Carlos).
 
-Como ya se documentó en el handoff anterior, los CFDI que maneja Instinto
-traen texto extraíble (no son escaneados), así que no hace falta OCR —
-alcanza con parsear el PDF o, mejor, el XML adjunto (más confiable que el
+Como los CFDI que maneja Instinto traen texto extraíble (no son
+escaneados, según el handoff anterior), no hace falta OCR — alcanza con
+parsear el PDF o, mejor, el XML adjunto al forward (más confiable que el
 PDF para monto/folio exactos).
+
+**Pendiente de Carlos** (bloqueante para implementar esta parte): el
+proyecto/bucket de Basecamp donde vive la herramienta Forwards que recibe
+estos reenvíos — esta sesión no tiene memoria de sesiones anteriores, así
+que no hay forma de inferirlo sin ese dato. Con el bucket ID (y el ID de
+la herramienta Forwards dentro de ese proyecto, visible en la URL al
+abrirla en Basecamp) se puede listar los forwards vía `basecamp` CLI igual
+que ya se hace con `messages show/update`.
+
+### "Sin factura" no siempre es un error
+Confirmado por Carlos: cuando falla un proveedor y compra de respaldo con
+otro que no factura (pasó la semana pasada), eso es válido, no un error de
+captura. Por eso el reporte semanal **ya no trata "sin factura adjunta"
+como alerta** — quedó como nota informativa de baja prioridad al final de
+la sección de gastos (ver `formatExpensesHTML` en
+`src/integrations/basecamp.js`), para que Carlos la revise caso por caso
+sin que el sistema asuma que es un error.
 
 ### Dónde vive el resultado
 Se puede agregar como una sub-sección más del reporte semanal de los lunes
@@ -104,21 +120,23 @@ facturas de correo sin capturar en Fudo, gastos de Fudo sin factura de
 correo encontrada, y conciliados. Encaja en la cadencia que ya existe en
 vez de crear un canal nuevo.
 
-## 4. Siguiente paso — necesita tu confirmación antes de construirse
+## 4. Siguiente paso — falta un dato para construirse
 
-Falta implementar la parte de correo (`src/integrations/gmail-reconciliation.js`
-o similar). Antes de tocar el buzón real necesito que confirmes:
+Falta implementar `src/integrations/basecamp-forwards.js` (o similar) que
+lea los Forwards de facturas y corra el matching contra `getExpenses()`.
+Solo falta un dato bloqueante:
 
-1. **Lista de proveedores de materia prima y su correo de facturación**
-   (al menos los principales — pan, carne, pollo). Sin esto, la búsqueda
-   por palabras clave va a traer falsos positivos/negativos.
-2. **¿Todas las facturas de esos proveedores llegan por correo**, o hay
-   proveedores que solo dejan nota física en la entrega (esos nunca van a
-   tener match de correo, y no debe reportarse como error)?
-3. Confirmar que quieres que el bot **lea** el buzón de facturas
-   automáticamente cada lunes (búsqueda + lectura de adjuntos) — es una
-   acción sobre tu correo real, así que prefiero construirlo con tu
-   confirmación explícita en vez de asumir alcance.
+1. **Bucket/proyecto de Basecamp y el ID de la herramienta Forwards**
+   donde caen los reenvíos de facturas (visible en la URL al abrir esa
+   herramienta en Basecamp, igual que `BASECAMP_BUCKET_ID` /
+   `BASECAMP_MESSAGE_ID` ya configurados en `.env` para el resto del
+   sistema). Con eso reviso qué comandos expone el CLI `basecamp` para
+   listar/leer forwards (no está instalado en este contenedor — solo vive
+   en la máquina de Carlos — así que esa parte se valida ahí, no aquí).
 
-Con esas tres respuestas puedo implementar el matching y agregarlo al
-reporte de los lunes.
+Ya no hace falta el mapeo de correos por proveedor ni el permiso sobre
+Gmail — el punto 3 de la versión anterior de este documento (leer el
+buzón directamente) queda descartado: es Basecamp, no Gmail.
+
+Con el bucket/tool ID puedo implementar el matching y agregarlo al reporte
+de los lunes.

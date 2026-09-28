@@ -252,9 +252,12 @@ class BasecampIntegration {
 
   /**
    * Sección de gastos (compras a proveedores/materia prima) del reporte
-   * semanal, a partir de FudoClient.organizeExpenses(). Prioriza las alertas
-   * (sin factura adjunta, vencidos sin pagar) sobre los totales — son lo que
-   * requiere acción el lunes, no solo información.
+   * semanal, a partir de FudoClient.organizeExpenses(). "Vencido sin pagar"
+   * es la alerta real (riesgo financiero, va primero y en rojo). "Sin
+   * factura adjunta" NO es necesariamente un error — Carlos confirmó que a
+   * veces compra a un proveedor de respaldo que no da factura — así que va
+   * como nota informativa al final, sin color de alerta, solo para que la
+   * revise caso por caso.
    */
   formatExpensesHTML(expensesReport) {
     if (!expensesReport) return '';
@@ -272,18 +275,18 @@ class BasecampIntegration {
     }
     html += `<p><strong>Otros gastos (admin/operativos):</strong> $${otherExpenses.total.toLocaleString('es-MX')} · ${otherExpenses.count} factura(s)</p>`;
 
-    if (alerts.missingInvoice.length > 0) {
-      const rows = alerts.missingInvoice
-        .map((e) => `<li>${e.date} · ${e.providerName} · $${e.amount.toLocaleString('es-MX')}${e.description ? ` — ${e.description}` : ''}</li>`)
-        .join('');
-      html += `<p style="color:#f59e0b;"><strong>🟡 Sin factura/nota adjunta en Fudo (${alerts.missingInvoice.length}):</strong></p><ul>${rows}</ul>`;
-    }
-
     if (alerts.overdueUnpaid.length > 0) {
       const rows = alerts.overdueUnpaid
         .map((e) => `<li>${e.providerName} · $${e.amount.toLocaleString('es-MX')} · vencía ${e.dueDate}</li>`)
         .join('');
       html += `<p style="color:#ef4444;"><strong>🔴 Vencidos sin pagar (${alerts.overdueUnpaid.length}):</strong></p><ul>${rows}</ul>`;
+    }
+
+    if (alerts.missingInvoice.length > 0) {
+      const rows = alerts.missingInvoice
+        .map((e) => `<li>${e.date} · ${e.providerName} · $${e.amount.toLocaleString('es-MX')}${e.description ? ` — ${e.description}` : ''}</li>`)
+        .join('');
+      html += `<p><small><strong>Sin factura/nota adjunta en Fudo (${alerts.missingInvoice.length})</strong> — revisar si aplica (proveedor de respaldo, etc.) o falta adjuntarla:</small></p><ul><small>${rows}</small></ul>`;
     }
 
     return html;
