@@ -9,10 +9,16 @@ const execFileAsync = promisify(execFile);
  *
  * Proyecto "Administración" (bucket 32427345, Message Board 6062062956) —
  * confirmado por Carlos el 2026-09-10, reemplaza al proyecto viejo
- * "Operaciones Instinto" (46274090). Todo lo automático va ahí ahora.
+ * "Operaciones Instinto" (46274090) para reportes/mensajes. Todo lo
+ * automático de cortes va ahí ahora.
  * Hilo fijo de cortes diarios creado a mano por Carlos:
  * https://3.basecamp.com/5484659/buckets/32427345/messages/10289129219
  * (id 10289129219) — updateDailyMessage() le prepende el corte del día.
+ *
+ * EXCEPCIÓN: los forwards de facturas de proveedores SÍ siguen viviendo en
+ * el proyecto viejo "Operaciones Instinto" (46274090) — es donde Carlos las
+ * revisa todos los días — así que listForwards()/getForward() apuntan a
+ * ese bucket distinto vía BASECAMP_FORWARDS_BUCKET_ID/_INBOX_ID.
  */
 class BasecampIntegration {
   constructor(config = {}) {
@@ -21,6 +27,12 @@ class BasecampIntegration {
     this.messageBoardId = config.messageBoardId || process.env.BASECAMP_MESSAGE_BOARD_ID || '6062062956';
     this.dailyMessageId = config.dailyMessageId || process.env.BASECAMP_MESSAGE_ID || '10289129219';
     this.inventoryMessageId = config.inventoryMessageId || process.env.BASECAMP_INVENTORY_MESSAGE_ID || '10289204960';
+    // Los forwards de facturas viven en el proyecto viejo "Operaciones
+    // Instinto" (bucket distinto al de "Administración" de arriba) —
+    // confirmado por Carlos con el link a la herramienta Forwards de ese
+    // proyecto. Por eso van en su propio bucket/inbox, no en this.bucketId.
+    this.forwardsBucketId = config.forwardsBucketId || process.env.BASECAMP_FORWARDS_BUCKET_ID;
+    this.forwardsInboxId = config.forwardsInboxId || process.env.BASECAMP_FORWARDS_INBOX_ID;
   }
 
   async run(args) {
@@ -28,6 +40,44 @@ class BasecampIntegration {
       ...args,
       '--account', this.accountId,
       '--project', this.bucketId,
+      '--json',
+    ]);
+    return JSON.parse(stdout);
+  }
+
+  /**
+   * Lista los forwards (facturas/notas reenviadas por correo) del inbox de
+   * "Operaciones Instinto", usando el CLI `basecamp forwards list` (subcomando
+   * confirmado en la spec oficial de basecamp/basecamp-cli — no probado en
+   * vivo desde este contenedor porque el CLI no está instalado aquí, solo
+   * en la máquina de Carlos; validar ahí antes de confiar en el parseo).
+   */
+  async listForwards({ all = true } = {}) {
+    if (!this.forwardsBucketId || !this.forwardsInboxId) {
+      throw new Error(
+        'Falta BASECAMP_FORWARDS_BUCKET_ID / BASECAMP_FORWARDS_INBOX_ID en .env'
+      );
+    }
+    const args = [
+      'forwards', 'list',
+      '--account', this.accountId,
+      '--project', this.forwardsBucketId,
+      '--inbox', this.forwardsInboxId,
+      '--json',
+    ];
+    if (all) args.push('--all');
+    const { stdout } = await execFileAsync('basecamp', args);
+    return JSON.parse(stdout);
+  }
+
+  /**
+   * Detalle de un forward puntual (asunto, cuerpo, adjuntos) por su ID.
+   */
+  async getForward(forwardId) {
+    const { stdout } = await execFileAsync('basecamp', [
+      'forwards', 'show', String(forwardId),
+      '--account', this.accountId,
+      '--project', this.forwardsBucketId,
       '--json',
     ]);
     return JSON.parse(stdout);

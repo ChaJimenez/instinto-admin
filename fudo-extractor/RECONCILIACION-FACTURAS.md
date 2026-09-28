@@ -120,23 +120,32 @@ facturas de correo sin capturar en Fudo, gastos de Fudo sin factura de
 correo encontrada, y conciliados. Encaja en la cadencia que ya existe en
 vez de crear un canal nuevo.
 
-## 4. Siguiente paso — falta un dato para construirse
+## 4. Estado — configuración resuelta, falta validar y construir el matching
 
-Falta implementar `src/integrations/basecamp-forwards.js` (o similar) que
-lea los Forwards de facturas y corra el matching contra `getExpenses()`.
-Solo falta un dato bloqueante:
+Carlos confirmó la ubicación de los forwards:
+https://3.basecamp.com/5484659/buckets/46274090/inboxes/10191373652
+→ bucket **46274090** ("Operaciones Instinto", el proyecto viejo — sigue
+vivo solo para esto), herramienta Forwards con ID **10191373652**. Ya
+configurado en `.env.example` como `BASECAMP_FORWARDS_BUCKET_ID` /
+`BASECAMP_FORWARDS_INBOX_ID`, y `BasecampIntegration.listForwards()` /
+`.getForward(id)` (en `src/integrations/basecamp.js`) ya apuntan ahí usando
+el CLI oficial `basecamp forwards list` / `forwards show` (confirmado
+contra la spec de github.com/basecamp/basecamp-cli, ya que ese CLI no está
+instalado en este contenedor — solo en la máquina de Carlos).
 
-1. **Bucket/proyecto de Basecamp y el ID de la herramienta Forwards**
-   donde caen los reenvíos de facturas (visible en la URL al abrir esa
-   herramienta en Basecamp, igual que `BASECAMP_BUCKET_ID` /
-   `BASECAMP_MESSAGE_ID` ya configurados en `.env` para el resto del
-   sistema). Con eso reviso qué comandos expone el CLI `basecamp` para
-   listar/leer forwards (no está instalado en este contenedor — solo vive
-   en la máquina de Carlos — así que esa parte se valida ahí, no aquí).
+**Pendiente antes de construir el matching real** (necesita correr en la
+máquina de Carlos, donde el CLI sí está autenticado):
+
+1. Correr `listForwards()` una vez contra datos reales y ver la forma
+   exacta del JSON que devuelve — en particular cómo vienen los adjuntos
+   (¿URL descargable del PDF/XML? ¿contenido inline?) y el asunto/cuerpo
+   del correo reenviado. El diseño de matching de la sección 3 asume que
+   se puede extraer proveedor/monto/folio de ahí, pero eso no se ha
+   verificado contra un forward real todavía.
+2. Con eso, escribir el parser (PDF o, mejor, XML del CFDI si el adjunto
+   lo trae) y la función de matching contra `FudoClient.getExpenses()`
+   descrita en la sección 3.
 
 Ya no hace falta el mapeo de correos por proveedor ni el permiso sobre
 Gmail — el punto 3 de la versión anterior de este documento (leer el
-buzón directamente) queda descartado: es Basecamp, no Gmail.
-
-Con el bucket/tool ID puedo implementar el matching y agregarlo al reporte
-de los lunes.
+buzón directamente) quedó descartado: es Basecamp, no Gmail.
