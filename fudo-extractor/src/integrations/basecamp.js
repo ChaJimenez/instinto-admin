@@ -27,6 +27,9 @@ class BasecampIntegration {
     this.messageBoardId = config.messageBoardId || process.env.BASECAMP_MESSAGE_BOARD_ID || '6062062956';
     this.dailyMessageId = config.dailyMessageId || process.env.BASECAMP_MESSAGE_ID || '10289129219';
     this.inventoryMessageId = config.inventoryMessageId || process.env.BASECAMP_INVENTORY_MESSAGE_ID || '10289204960';
+    // Hilo fijo para los reportes semanales, confirmado por Carlos:
+    // https://3.basecamp.com/5484659/buckets/32427345/messages/10289153902
+    this.weeklyMessageId = config.weeklyMessageId || process.env.BASECAMP_WEEKLY_MESSAGE_ID || '10289153902';
     // Los forwards de facturas viven en el proyecto viejo "Operaciones
     // Instinto" (bucket distinto al de "Administración" de arriba) —
     // confirmado por Carlos con el link a la herramienta Forwards de ese
@@ -177,18 +180,34 @@ class BasecampIntegration {
   }
 
   /**
-   * Postea un mensaje nuevo con el reporte semanal (sí queremos historial semana a semana).
+   * Actualiza el hilo fijo de reportes semanales prependiendo el corte de la
+   * semana — mismo patrón que updateDailyMessage/updateInventoryMessage, en
+   * vez de crear un mensaje nuevo cada lunes, así el historial semana a
+   * semana queda en un solo hilo (confirmado por Carlos con el link al
+   * mensaje 10289153902).
    */
   async postWeeklyMessage(metrics, dailyBreakdown = null, expensesReport = null) {
-    const title = `Reporte Semanal — ${metrics.period.start} al ${metrics.period.end}`;
-    const body = this.formatWeeklyHTML(metrics, dailyBreakdown, expensesReport);
+    if (!this.weeklyMessageId) {
+      console.warn('⚠️  BASECAMP_WEEKLY_MESSAGE_ID no configurado — no se actualiza Basecamp.');
+      return null;
+    }
 
-    const result = await this.run([
-      'message', title, body,
+    const current = await this.run([
+      'messages', 'show', this.weeklyMessageId,
       '--message-board', this.messageBoardId,
     ]);
+    const previousContent = current.data?.content || current.content || '';
 
-    console.log(`✅ Reporte semanal publicado en Basecamp: ${title}`);
+    const weekBlock = this.formatWeeklyHTML(metrics, dailyBreakdown, expensesReport);
+    const newContent = weekBlock + '<hr>' + previousContent;
+
+    const result = await this.run([
+      'messages', 'update', this.weeklyMessageId,
+      '--message-board', this.messageBoardId,
+      '--body', newContent,
+    ]);
+
+    console.log(`✅ Reporte semanal agregado a Basecamp (mensaje ${this.weeklyMessageId})`);
     return result;
   }
 
