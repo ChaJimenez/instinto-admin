@@ -2,6 +2,12 @@ const { execFile } = require('child_process');
 const { promisify } = require('util');
 const execFileAsync = promisify(execFile);
 
+// El default de Node (1MB) se queda corto con `forwards list --all`: el
+// historial completo trae el cuerpo de cada correo reenviado, que incluye
+// blobs base64 largos (ligas de descarga firmadas, etc.) — ya se vio
+// reventar ERR_CHILD_PROCESS_STDIO_MAXBUFFER contra datos reales.
+const EXEC_MAX_BUFFER = 50 * 1024 * 1024;
+
 /**
  * Publica reportes de Instinto en Basecamp usando el CLI `basecamp` que ya
  * está autenticado en esta máquina (mismo que usan los skills del ecosistema).
@@ -39,12 +45,11 @@ class BasecampIntegration {
   }
 
   async run(args) {
-    const { stdout } = await execFileAsync('basecamp', [
-      ...args,
-      '--account', this.accountId,
-      '--project', this.bucketId,
-      '--json',
-    ]);
+    const { stdout } = await execFileAsync(
+      'basecamp',
+      [...args, '--account', this.accountId, '--project', this.bucketId, '--json'],
+      { maxBuffer: EXEC_MAX_BUFFER }
+    );
     return JSON.parse(stdout);
   }
 
@@ -69,7 +74,7 @@ class BasecampIntegration {
       '--json',
     ];
     if (all) args.push('--all');
-    const { stdout } = await execFileAsync('basecamp', args);
+    const { stdout } = await execFileAsync('basecamp', args, { maxBuffer: EXEC_MAX_BUFFER });
     return JSON.parse(stdout);
   }
 
@@ -77,12 +82,16 @@ class BasecampIntegration {
    * Detalle de un forward puntual (asunto, cuerpo, adjuntos) por su ID.
    */
   async getForward(forwardId) {
-    const { stdout } = await execFileAsync('basecamp', [
-      'forwards', 'show', String(forwardId),
-      '--account', this.accountId,
-      '--project', this.forwardsBucketId,
-      '--json',
-    ]);
+    const { stdout } = await execFileAsync(
+      'basecamp',
+      [
+        'forwards', 'show', String(forwardId),
+        '--account', this.accountId,
+        '--project', this.forwardsBucketId,
+        '--json',
+      ],
+      { maxBuffer: EXEC_MAX_BUFFER }
+    );
     return JSON.parse(stdout);
   }
 
