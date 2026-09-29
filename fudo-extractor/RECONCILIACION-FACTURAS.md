@@ -120,7 +120,7 @@ facturas de correo sin capturar en Fudo, gastos de Fudo sin factura de
 correo encontrada, y conciliados. Encaja en la cadencia que ya existe en
 vez de crear un canal nuevo.
 
-## 4. Estado — configuración resuelta, falta validar y construir el matching
+## 4. Estado — matching por folio construido, validando contra datos reales
 
 Carlos confirmó la ubicación de los forwards:
 https://3.basecamp.com/5484659/buckets/46274090/inboxes/10191373652
@@ -129,23 +129,38 @@ vivo solo para esto), herramienta Forwards con ID **10191373652**. Ya
 configurado en `.env.example` como `BASECAMP_FORWARDS_BUCKET_ID` /
 `BASECAMP_FORWARDS_INBOX_ID`, y `BasecampIntegration.listForwards()` /
 `.getForward(id)` (en `src/integrations/basecamp.js`) ya apuntan ahí usando
-el CLI oficial `basecamp forwards list` / `forwards show` (confirmado
-contra la spec de github.com/basecamp/basecamp-cli, ya que ese CLI no está
-instalado en este contenedor — solo en la máquina de Carlos).
+el CLI oficial `basecamp forwards list` / `forwards show`.
 
-**Pendiente antes de construir el matching real** (necesita correr en la
-máquina de Carlos, donde el CLI sí está autenticado):
+**Validado contra datos reales de Carlos (2026-09-29, 675 forwards):**
+- `listForwards()` sí funciona con el CLI autenticado en su máquina — el
+  único bloqueante era `ERR_CHILD_PROCESS_STDIO_MAXBUFFER` (Node limita
+  `execFile` a 1MB por default, y `--all` contra 675 forwards lo superaba
+  ampliamente). Ya corregido en `src/integrations/basecamp.js` subiendo el
+  límite a 50MB.
+- La forma del JSON: cada forward trae `subject`, `content` (HTML del
+  correo reenviado), `from`, `created_at`, y `content_attachments[]` con
+  `filename`/`content_type`/`download_url`/`byte_size` — confirmado un caso
+  real (Walmart) con **XML del CFDI adjunto y descargable** además del PDF,
+  tal como se esperaba en la sección 1. No hace falta OCR.
 
-1. Correr `listForwards()` una vez contra datos reales y ver la forma
-   exacta del JSON que devuelve — en particular cómo vienen los adjuntos
-   (¿URL descargable del PDF/XML? ¿contenido inline?) y el asunto/cuerpo
-   del correo reenviado. El diseño de matching de la sección 3 asume que
-   se puede extraer proveedor/monto/folio de ahí, pero eso no se ha
-   verificado contra un forward real todavía.
-2. Con eso, escribir el parser (PDF o, mejor, XML del CFDI si el adjunto
-   lo trae) y la función de matching contra `FudoClient.getExpenses()`
-   descrita en la sección 3.
+**Construido en `src/reconcile-invoices.js`** (`npm run reconcile -- [inicio] [fin]`):
+matching conservador, solo por folio — busca `expense.receiptNumber`
+(normalizado: sin acentos, mayúsculas, solo alfanumérico) como substring
+dentro del `subject`/`content` de los forwards de la ventana de la semana
+(±3 días antes, +7 después, porque una factura puede llegar tarde). Filtra
+primero los forwards que parecen factura (adjunto XML, o "factura"/"cfdi"/
+"comprobante" en el asunto) para no confundir con otros correos que también
+caen en ese mismo inbox (ej. estados de cuenta de Uber, vistos en los datos
+reales). Deliberadamente **no** intenta todavía el match por proveedor+monto
+de la sección 3 — para eso hace falta descargar y parsear el XML del CFDI
+(folio real, RFC, total), que no se ha probado aún contra un adjunto real.
 
-Ya no hace falta el mapeo de correos por proveedor ni el permiso sobre
-Gmail — el punto 3 de la versión anterior de este documento (leer el
-buzón directamente) quedó descartado: es Basecamp, no Gmail.
+**Pendiente de validar con Carlos**: correr `npm run reconcile` contra una
+semana real y ver si el bucket de "conciliados por folio" tiene contenido —
+depende de que `expense.receiptNumber` en Fudo use un formato que de verdad
+aparezca en el asunto/cuerpo del correo (ej. el folio `ICABT1705303` del
+caso Walmart). Si el match por folio sale vacío o casi vacío, el siguiente
+paso es descargar el XML (`content_attachments[].download_url`, requiere
+las credenciales del CLI de Basecamp, no un fetch anónimo) y extraer
+Folio/Serie/Total/RFC del CFDI directamente en vez de confiar en el texto
+libre del correo.

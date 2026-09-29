@@ -10,6 +10,7 @@
     "daily": "node src/schedulers/daily-sync.js",
     "daily:now": "node src/run-daily-sync-now.js",
     "weekly": "node src/schedulers/weekly-report.js",
+    "reconcile": "node src/reconcile-invoices.js",
     "test": "node src/test-fudo.js"
   },
   "dependencies": {
