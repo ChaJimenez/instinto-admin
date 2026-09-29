@@ -97,6 +97,50 @@ class GoogleDriveIntegration {
       return [];
     }
   }
+
+  /**
+   * Lista los reportes semanales previos (nombre `weekly-report-*.json`, ver
+   * weekly-report.js) para poder comparar la semana actual contra semana
+   * anterior, promedio móvil de 4 semanas y mismo periodo del año pasado.
+   * `listReports()` no sirve para esto: filtra por 'instinto-report', un
+   * prefijo que weekly-report.js nunca usa.
+   */
+  async listWeeklyReports(limit = 60) {
+    try {
+      this.initialize();
+      const drive = google.drive({ version: 'v3', auth: this.auth });
+
+      const response = await drive.files.list({
+        q: `${this.folderId ? `'${this.folderId}' in parents and ` : ''}name contains 'weekly-report-'`,
+        spaces: 'drive',
+        fields: 'files(id, name, createdTime)',
+        pageSize: limit,
+        orderBy: 'createdTime desc',
+      });
+
+      return response.data.files || [];
+    } catch (error) {
+      console.error('❌ Error listando reportes semanales de Drive:', error.message);
+      return [];
+    }
+  }
+
+  async downloadReport(fileId) {
+    try {
+      this.initialize();
+      const drive = google.drive({ version: 'v3', auth: this.auth });
+
+      const response = await drive.files.get(
+        { fileId, alt: 'media' },
+        { responseType: 'json' }
+      );
+
+      return response.data;
+    } catch (error) {
+      console.error(`❌ Error descargando reporte ${fileId} de Drive:`, error.message);
+      return null;
+    }
+  }
 }
 
 module.exports = GoogleDriveIntegration;

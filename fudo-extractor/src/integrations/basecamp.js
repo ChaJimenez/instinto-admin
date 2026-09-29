@@ -186,7 +186,7 @@ class BasecampIntegration {
    * semana queda en un solo hilo (confirmado por Carlos con el link al
    * mensaje 10289153902).
    */
-  async postWeeklyMessage(metrics, dailyBreakdown = null, expensesReport = null) {
+  async postWeeklyMessage(metrics, dailyBreakdown = null, expensesReport = null, comparison = null) {
     if (!this.weeklyMessageId) {
       console.warn('⚠️  BASECAMP_WEEKLY_MESSAGE_ID no configurado — no se actualiza Basecamp.');
       return null;
@@ -198,7 +198,7 @@ class BasecampIntegration {
     ]);
     const previousContent = current.data?.content || current.content || '';
 
-    const weekBlock = this.formatWeeklyHTML(metrics, dailyBreakdown, expensesReport);
+    const weekBlock = this.formatWeeklyHTML(metrics, dailyBreakdown, expensesReport, comparison);
     const newContent = weekBlock + '<hr>' + previousContent;
 
     const result = await this.run([
@@ -361,7 +361,7 @@ class BasecampIntegration {
     return html;
   }
 
-  formatWeeklyHTML(metrics, dailyBreakdown = null, expensesReport = null) {
+  formatWeeklyHTML(metrics, dailyBreakdown = null, expensesReport = null, comparison = null) {
     const { kpis, health, alerts, period } = metrics;
 
     let dailyHTML = '';
@@ -395,11 +395,16 @@ class BasecampIntegration {
 
     const cogsText = kpis.cogsPercentage === null
       ? 'sin datos (falta cargar costo por producto en Fudo)'
-      : `${kpis.cogsPercentage}% (target 28-35%) ${health.cogsPercentage?.status === 'healthy' ? '✓' : '⚠️'}`;
+      : `${kpis.cogsPercentage}% (target 28-32%) ${health.cogsPercentage?.status === 'healthy' || health.cogsPercentage?.status === 'good' ? '✓' : '⚠️'}`;
 
     const laborText = kpis.laborPercentage === null
       ? 'sin datos (falta costo de nómina del período)'
       : `${kpis.laborPercentage}% (target 20-28%) ${health.laborPercentage?.status === 'healthy' ? '✓' : '⚠️'}`;
+
+    const primeCostStatusIcon = { good: '✓', healthy: '✓', warning: '⚠️', alert: '🔴', no_data: '' };
+    const primeCostText = kpis.primeCostPercentage === null
+      ? 'sin datos (falta COGS % o labor % del período)'
+      : `${kpis.primeCostPercentage}% (target 55-60%) ${primeCostStatusIcon[health.primeCostPercentage?.status] || ''}`;
 
     return `
       <h3>📊 Reporte Instinto — ${period.start} al ${period.end}</h3>
@@ -410,11 +415,55 @@ class BasecampIntegration {
       ${dailyHTML}
       <p><strong>COGS %:</strong> ${cogsText}</p>
       <p><strong>Labor %:</strong> ${laborText}</p>
+      <p><strong>Prime Cost %:</strong> ${primeCostText}</p>
+      ${this.formatComparisonHTML(comparison)}
       ${alertsHTML}
       <hr>
       ${this.formatExpensesHTML(expensesReport)}
       <p><small>Generado automáticamente por Instinto POS Dashboard</small></p>
     `;
+  }
+
+  /**
+   * Compara la semana actual contra las 4 referencias que recomienda la
+   * industria para separar ruido estacional de tendencia real: semana
+   * anterior, promedio móvil de 4 semanas, mismo periodo del año pasado.
+   * Ver KPICalculator.calculateHistoricalComparison.
+   */
+  formatComparisonHTML(comparison) {
+    if (!comparison) return '';
+
+    const arrow = (delta) => (delta === null || delta === undefined ? '' : delta > 0 ? '🔺' : delta < 0 ? '🔻' : '➡️');
+    const pp = (delta) => (delta === null || delta === undefined ? 'sin datos' : `${delta > 0 ? '+' : ''}${delta}pp`);
+    const money = (delta) =>
+      delta === null || delta === undefined
+        ? 'sin datos'
+        : `${delta > 0 ? '+' : ''}$${Math.abs(delta).toLocaleString('es-MX')}`;
+
+    const rows = [];
+
+    if (comparison.previousWeek) {
+      rows.push(
+        `<li><strong>vs. semana anterior (${comparison.previousWeek.weekStart}):</strong> ventas ${money(comparison.previousWeek.grossSalesDelta)} · prime cost ${arrow(comparison.previousWeek.primeCostPercentageDelta)} ${pp(comparison.previousWeek.primeCostPercentageDelta)}</li>`
+      );
+    }
+
+    if (comparison.fourWeekAvg) {
+      const { avgPrimeCostPercentage, avgGrossSales, weeksIncluded } = comparison.fourWeekAvg;
+      rows.push(
+        `<li><strong>Promedio móvil ${weeksIncluded} semana(s):</strong> ventas $${avgGrossSales?.toLocaleString('es-MX') ?? 'sin datos'} · prime cost ${avgPrimeCostPercentage ?? 'sin datos'}%</li>`
+      );
+    }
+
+    if (comparison.sameWeekLastYear) {
+      rows.push(
+        `<li><strong>vs. mismo periodo año pasado (${comparison.sameWeekLastYear.weekStart}):</strong> ventas ${money(comparison.sameWeekLastYear.grossSalesDelta)} · prime cost ${arrow(comparison.sameWeekLastYear.primeCostPercentageDelta)} ${pp(comparison.sameWeekLastYear.primeCostPercentageDelta)}</li>`
+      );
+    }
+
+    if (rows.length === 0) return '<p><small>Sin histórico suficiente todavía para comparar (se acumula semana a semana).</small></p>';
+
+    return `<p><strong>📈 Comparación:</strong></p><ul>${rows.join('')}</ul>`;
   }
 }
 

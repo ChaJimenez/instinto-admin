@@ -70,11 +70,15 @@ class KPICalculator {
     return Number((grossSales / (seatsAvailable * hoursOperating)).toFixed(2));
   }
 
+  // Metas de un burger restaurant independiente, sucursal única, según
+  // benchmarks de industria documentados en
+  // reports/Control operativo restaurantes exitosos.md (RestaurantOwner.com,
+  // Toast, restaurantinventorytools.com): food cost 28-32%, prime cost
+  // 55-60% con 65% como alerta moderada y 70%+ como alerta seria.
   static calculateHealth(kpis) {
     const targets = {
-      cogsPercentage: { min: 28, max: 35 },
+      cogsPercentage: { min: 28, max: 32 },
       laborPercentage: { min: 20, max: 28 },
-      primeCostPercentage: { min: 55, max: 65 },
     };
 
     const health = {};
@@ -94,7 +98,19 @@ class KPICalculator {
       }
     });
 
+    health.primeCostPercentage = this.evaluatePrimeCost(kpis.primeCostPercentage);
+
     return health;
+  }
+
+  static evaluatePrimeCost(value) {
+    if (value === null || value === undefined) {
+      return { status: 'no_data', message: 'Sin datos suficientes' };
+    }
+    if (value < 55) return { status: 'good', message: `Debajo del objetivo (${value}%)` };
+    if (value <= 60) return { status: 'healthy', message: `Dentro de rango (${value}%)` };
+    if (value <= 65) return { status: 'warning', message: `Alerta moderada (${value}%)` };
+    return { status: 'alert', message: `Alerta seria (${value}%)` };
   }
 
   static generateAlerts(kpis, health) {
@@ -104,7 +120,7 @@ class KPICalculator {
       alerts.push({
         level: 'high',
         metric: 'COGS',
-        message: `Food cost en ${kpis.cogsPercentage}% (objetivo 28-35%)`,
+        message: `Food cost en ${kpis.cogsPercentage}% (objetivo 28-32%)`,
         action: 'Revisar porciones y merma',
       });
     }
@@ -118,16 +134,100 @@ class KPICalculator {
       });
     }
 
+    if (health.primeCostPercentage?.status === 'warning') {
+      alerts.push({
+        level: 'medium',
+        metric: 'Prime Cost',
+        message: `Prime cost en ${kpis.primeCostPercentage}% (objetivo 55-60%, alerta moderada desde 60%)`,
+        action: 'Revisar costo de insumos y labor juntos antes de que escale',
+      });
+    }
+
     if (health.primeCostPercentage?.status === 'alert') {
       alerts.push({
         level: 'critical',
         metric: 'Prime Cost',
-        message: `Prime cost en ${kpis.primeCostPercentage}% (objetivo 55-65%)`,
+        message: `Prime cost en ${kpis.primeCostPercentage}% (objetivo 55-60%, alerta seria desde 70%)`,
         action: 'Crítico: revisar costo de insumos y labor juntos',
       });
     }
 
     return alerts;
+  }
+
+  /**
+   * Compara los KPIs de la semana actual contra hasta 3 referencias
+   * recomendadas por la práctica de la industria (evita confundir ruido
+   * estacional con una tendencia real): semana anterior, promedio móvil de
+   * 4 semanas, y mismo periodo del año pasado (±3 días de tolerancia sobre
+   * weekStart, porque las semanas no caen siempre en la misma fecha exacta
+   * año contra año).
+   *
+   * @param {Object} currentKpis - metrics.kpis de la semana actual
+   * @param {Array} pastReports - reportes semanales previos (weeklyReport
+   *   completos, más reciente primero), tal como se guardan/suben cada lunes
+   * @param {Object} period - { start, end } de la semana actual (YYYY-MM-DD)
+   */
+  static calculateHistoricalComparison(currentKpis, pastReports = [], period) {
+    const sorted = [...pastReports]
+      .filter((r) => r?.metrics?.kpis && r.weekStart)
+      .sort((a, b) => b.weekStart.localeCompare(a.weekStart));
+
+    const diff = (current, past) =>
+      current === null || current === undefined || past === null || past === undefined
+        ? null
+        : Number((current - past).toFixed(2));
+
+    const previous = sorted[0] || null;
+    const previousWeek = previous
+      ? {
+          weekStart: previous.weekStart,
+          grossSalesDelta: diff(currentKpis.grossSales, previous.metrics.kpis.grossSales),
+          primeCostPercentageDelta: diff(
+            currentKpis.primeCostPercentage,
+            previous.metrics.kpis.primeCostPercentage
+          ),
+        }
+      : null;
+
+    const last4 = sorted.slice(0, 4);
+    const avg = (values) => {
+      const clean = values.filter((v) => v !== null && v !== undefined);
+      return clean.length > 0
+        ? Number((clean.reduce((sum, v) => sum + v, 0) / clean.length).toFixed(2))
+        : null;
+    };
+    const fourWeekAvg =
+      last4.length > 0
+        ? {
+            weeksIncluded: last4.length,
+            avgGrossSales: avg(last4.map((r) => r.metrics.kpis.grossSales)),
+            avgPrimeCostPercentage: avg(last4.map((r) => r.metrics.kpis.primeCostPercentage)),
+          }
+        : null;
+
+    let sameWeekLastYear = null;
+    if (period?.start) {
+      const targetDate = new Date(`${period.start}T00:00:00Z`);
+      targetDate.setUTCFullYear(targetDate.getUTCFullYear() - 1);
+      const match = sorted.find((r) => {
+        const reportDate = new Date(`${r.weekStart}T00:00:00Z`);
+        const diffDays = Math.abs((reportDate - targetDate) / (24 * 60 * 60 * 1000));
+        return diffDays <= 3;
+      });
+      if (match) {
+        sameWeekLastYear = {
+          weekStart: match.weekStart,
+          grossSalesDelta: diff(currentKpis.grossSales, match.metrics.kpis.grossSales),
+          primeCostPercentageDelta: diff(
+            currentKpis.primeCostPercentage,
+            match.metrics.kpis.primeCostPercentage
+          ),
+        };
+      }
+    }
+
+    return { previousWeek, fourWeekAvg, sameWeekLastYear };
   }
 }
 

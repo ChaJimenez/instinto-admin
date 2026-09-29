@@ -49,6 +49,16 @@ async function generateWeeklyReport(rangeStart = null, rangeEnd = null) {
 
     const metrics = KPICalculator.calculate(sales, cogsResult, manualLaborCost, period);
 
+    const pastReportFiles = await googleDrive.listWeeklyReports();
+    const pastReports = (
+      await Promise.all(pastReportFiles.map((f) => googleDrive.downloadReport(f.id)))
+    ).filter(Boolean);
+    const comparison = KPICalculator.calculateHistoricalComparison(
+      metrics.kpis,
+      pastReports,
+      period
+    );
+
     const weeklyReport = {
       weekStart: period.start,
       weekEnd: period.end,
@@ -59,6 +69,7 @@ async function generateWeeklyReport(rangeStart = null, rangeEnd = null) {
       waiterRanking: FudoClient.calculateWaiterMetrics(sales),
       salesChannels: analyzeSalesChannels(sales),
       expenses: expensesReport,
+      comparison,
     };
 
     const filename = `weekly-report-${period.start}-a-${period.end}.json`;
@@ -78,6 +89,10 @@ async function generateWeeklyReport(rangeStart = null, rangeEnd = null) {
     console.log(`   🎫 Ticket promedio: $${metrics.kpis.averageCheck}`);
     console.log(`   📈 Tickets/día: ${(metrics.kpis.covers / daysInRange).toFixed(1)}`);
     console.log(`   📦 COGS: ${metrics.kpis.cogsPercentage === null ? 'sin datos' : metrics.kpis.cogsPercentage + '%'}`);
+    console.log(`   🎯 Prime cost: ${metrics.kpis.primeCostPercentage === null ? 'sin datos' : metrics.kpis.primeCostPercentage + '%'} (objetivo 55-60%)`);
+    if (comparison.previousWeek) {
+      console.log(`   📊 vs. semana anterior: prime cost ${comparison.previousWeek.primeCostPercentageDelta > 0 ? '+' : ''}${comparison.previousWeek.primeCostPercentageDelta ?? 'sin datos'}pp`);
+    }
     console.log(`\n🧾 Gastos de la semana:`);
     console.log(`   Materia prima: $${expensesReport.rawMaterials.total.toFixed(2)} (${expensesReport.rawMaterials.count} facturas)`);
     console.log(`   Otros gastos: $${expensesReport.otherExpenses.total.toFixed(2)} (${expensesReport.otherExpenses.count} facturas)`);
@@ -88,7 +103,7 @@ async function generateWeeklyReport(rangeStart = null, rangeEnd = null) {
       console.log(`   🔴 ${expensesReport.alerts.overdueUnpaid.length} gasto(s) vencido(s) sin pagar`);
     }
 
-    await basecamp.postWeeklyMessage(metrics, weeklyReport.dailyBreakdown, expensesReport);
+    await basecamp.postWeeklyMessage(metrics, weeklyReport.dailyBreakdown, expensesReport, comparison);
     await googleDrive.uploadReport(weeklyReport, filename);
 
     return weeklyReport;
